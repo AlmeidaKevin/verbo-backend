@@ -10,19 +10,22 @@ const transporter = nodemailer.createTransport({
   },
 });
 
+
+
+
 const enviarEmail = async ({ to, subject, html, text }) => {
-  try {
-    await transporter.sendMail({
-      from: process.env.EMAIL_FROM,
-      to,
-      subject,
-      html,
-      text,
-    });
-  } catch (error) {
-    console.error('Error enviando email:', error.message);
-    // No lanzar error para no detener el flujo principal
-  }
+  const info = await transporter.sendMail({
+    from: process.env.EMAIL_FROM,
+    to,
+    subject,
+    html,
+    text,
+  });
+
+  return info;
 };
+
+
+
 
 module.exports = { enviarEmail };
