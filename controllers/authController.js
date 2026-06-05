@@ -74,31 +74,55 @@ const crearUsuario = async (req, res) => {
 
     if (error) throw error;
 
-    // Enviar email de bienvenida con credenciales
-    await enviarEmail({
-      to: email,
-      subject: 'Bienvenido - Escuela Dominical Verbo Mañosca',
-      html: `
-        <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;padding:20px">
-          <h2 style="color:#6366f1">¡Bienvenido a la Escuela Dominical!</h2>
-          <p>Hola <strong>${nombre_completo}</strong>, tu cuenta ha sido creada.</p>
-          <p><strong>Email:</strong> ${email}</p>
-          <p><strong>Contraseña temporal:</strong> ${password}</p>
-          <p><strong>Rol:</strong> ${rol}</p>
-          <a href="${process.env.FRONTEND_URL}/login" style="background:#6366f1;color:white;padding:12px 24px;text-decoration:none;border-radius:8px;display:inline-block;margin-top:16px">
-            Iniciar Sesión
-          </a>
-          <p style="margin-top:20px;color:#888;font-size:12px">Por seguridad, cambia tu contraseña al ingresar.</p>
-        </div>
-      `,
+
+    // Intentar enviar correo
+    try {
+      await enviarEmail({
+        to: email,
+        subject: 'Bienvenido - Escuela Dominical Verbo Mañosca',
+        html: `
+          <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;padding:20px">
+            <h2 style="color:#6366f1">¡Bienvenido a la Escuela Dominical!</h2>
+            <p>Hola <strong>${nombre_completo}</strong>, tu cuenta ha sido creada.</p>
+            <p><strong>Email:</strong> ${email}</p>
+            <p><strong>Contraseña temporal:</strong> ${password}</p>
+            <p><strong>Rol:</strong> ${rol}</p>
+  
+            <a href="${process.env.FRONTEND_URL}/login"
+               style="background:#6366f1;color:white;padding:12px 24px;text-decoration:none;border-radius:8px;display:inline-block;margin-top:16px">
+              Iniciar Sesión
+            </a>
+  
+            <p style="margin-top:20px;color:#888;font-size:12px">
+              Por seguridad, cambia tu contraseña al ingresar.
+            </p>
+          </div>
+        `,
+      });
+    } catch (error) {
+      return res.status(500).json({
+        success: false,
+        message: 'Usuario creado pero el correo no pudo enviarse',
+        error: error.message,
+        usuario: nuevo
+      });
+    }
+  
+    res.status(201).json({
+      success: true,
+      message: 'Usuario creado correctamente',
+      usuario: nuevo
     });
-
-    res.status(201).json({ success: true, message: 'Usuario creado correctamente', usuario: nuevo });
+  
   } catch (err) {
-    res.status(500).json({ success: false, message: 'Error al crear usuario', error: err.message });
+    res.status(500).json({
+      success: false,
+      message: 'Error al crear usuario',
+      error: err.message
+    });
   }
-};
 
+  
 // POST /api/auth/olvide-password
 const olvidéPassword = async (req, res) => {
   try {
