@@ -498,7 +498,8 @@ const exportar = async (req, res) => {
 
     res.status(400).json({ success: false, message: 'Formato no soportado. Usa xlsx o pdf' });
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    console.error('ERROR EXPORTAR PDF:', err);
+    res.status(500).json({ success: false, message: err.message, stack: err.stack });
   }
 };
 
