@@ -404,7 +404,8 @@ const exportar = async (req, res) => {
 
       // Observación general
       if (registro.observacion_general) {
-        doc.rect(col1, y, pageW, 'auto').fill('#fffbeb');
+        const obsHeight = doc.heightOfString(registro.observacion_general, { width: pageW - 12 }) + 28;
+        doc.rect(col1, y, pageW, obsHeight).fill('#fffbeb');
         doc
           .fillColor('#92400e')
           .font('Helvetica-Bold')
