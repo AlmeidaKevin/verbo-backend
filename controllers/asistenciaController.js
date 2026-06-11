@@ -182,6 +182,22 @@ const editarAsistencia = async (req, res) => {
   }
 };
 
+
+// DELETE /api/asistencias/:id  — desmarcar un niño
+const desmarcarAsistencia = async (req, res) => {
+  try {
+    const { error } = await supabase
+      .from('asistencias')
+      .delete()
+      .eq('id', req.params.id);
+    if (error) throw error;
+    res.json({ success: true, message: 'Asistencia desmarcada' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+
 // ─────────────────────────────────────────────────────────────────────────────
 // POST /api/asistencias/guardar  — guardar + observación general
 // ─────────────────────────────────────────────────────────────────────────────
@@ -509,6 +525,7 @@ module.exports = {
   registrosDelDia,
   marcarAsistencia,
   editarAsistencia,
+  desmarcarAsistencia,
   guardarRegistro,
   actualizarObservacion,
   historialRegistros,
