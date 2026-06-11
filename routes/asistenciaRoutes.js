@@ -11,5 +11,6 @@ router.post('/marcar', proteger, ctrl.marcarAsistencia);
 router.post('/guardar', proteger, ctrl.guardarRegistro);
 router.put('/registro/:id/observacion', proteger, ctrl.actualizarObservacion); // ← ANTES del /:id
 router.put('/:id', proteger, ctrl.editarAsistencia);
+router.delete('/:id', proteger, ctrl.desmarcarAsistencia);
 
 module.exports = router;
