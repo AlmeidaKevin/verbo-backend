@@ -294,7 +294,7 @@ const exportar = async (req, res) => {
       };
 
       // Titulo
-      const r1 = ws.addRow(['ESCUELA DOMINICAL VERBO MANOSCA', '', '', '', '']);
+      const r1 = ws.addRow(['ESCUELA DOMINICAL VERBO MAÑOSCA', '', '', '', '']);
       ws.mergeCells('A' + r1.number + ':E' + r1.number);
       r1.height = 30;
       styleRow(r1, azul, 'FFFFFF', true, 15, true);
@@ -353,7 +353,7 @@ const exportar = async (req, res) => {
       ws.addRow([]);
 
       // Cabecera tabla
-      const rHead = ws.addRow(['#', 'Nombre del Nino', 'Hora de Llegada', 'Llego Tarde', 'Comentario / Nota']);
+      const rHead = ws.addRow(['#', 'Nombre del Niño', 'Hora de Llegada', 'Llego Tarde', 'Comentario / Nota']);
       rHead.height = 22;
       styleRow(rHead, azul, 'FFFFFF', true, 10, true);
 
@@ -378,7 +378,7 @@ const exportar = async (req, res) => {
           cell.font      = { bold: isTarde, size: 10, color: { argb: isTarde ? 'FF' + naranja : 'FF111827' } };
           cell.alignment = {
             vertical:   'middle',
-            horizontal: (colNum === 1 || colNum === 3 || colNum === 4) ? 'center' : 'left',
+            horizontal: colNum === 5 ? 'left' : 'center',
             wrapText:   true,
           };
         });
@@ -455,8 +455,8 @@ const exportar = async (req, res) => {
 
       doc.rect(45, 40, pageW, 60).fill(AZUL);
       doc.fillColor('#ffffff').font('Helvetica-Bold').fontSize(15)
-        .text('ESCUELA DOMINICAL VERBO MANOSCA', 55, 52, { width: pageW - 20 });
-      doc.font('Helvetica').fontSize(10).text('Reporte de Asistencia', 55, 72);
+        .text('ESCUELA DOMINICAL VERBO MAÑOSCA', 55, 52, { width: pageW - 20, align: 'center' });
+      doc.font('Helvetica').fontSize(10).text('Reporte de Asistencia', 55, 72, { width: pageW - 20, align: 'center' });
 
       let y = 118;
       const col1 = 45;
@@ -492,14 +492,14 @@ const exportar = async (req, res) => {
       }
 
       const colWidths = [30, 220, 75, 65, 155];
-      const headers   = ['#', 'Nombre del Nino', 'Hora', 'Tarde', 'Comentario / Nota'];
+      const headers   = ['#', 'Nombre del Niño', 'Hora', 'Tarde', 'Comentario / Nota'];
       const rowH      = 18;
 
       doc.rect(col1, y, pageW, rowH).fill(AZUL);
       let x = col1;
       headers.forEach((h, i) => {
         doc.fillColor('#ffffff').font('Helvetica-Bold').fontSize(8)
-          .text(h, x + 4, y + 5, { width: colWidths[i] - 6, align: i === 0 ? 'center' : 'left' });
+          .text(h, x + 4, y + 5, { width: colWidths[i] - 6, align: 'center' });
         x += colWidths[i];
       });
       y += rowH;
@@ -520,7 +520,7 @@ const exportar = async (req, res) => {
           doc.fillColor(color)
             .font(i === 3 && v === 'Si' ? 'Helvetica-Bold' : 'Helvetica')
             .fontSize(8)
-            .text(v, x + 4, y + 5, { width: colWidths[i] - 6, align: i === 0 ? 'center' : 'left' });
+            .text(v, x + 4, y + 5, { width: colWidths[i] - 6, align: i === 4 ? 'left' : 'center' });
           x += colWidths[i];
         });
         doc.moveTo(col1, y + rowH).lineTo(col1 + pageW, y + rowH).strokeColor('#e2e8f0').lineWidth(0.5).stroke();
