@@ -1,12 +1,22 @@
 const supabase = require('../config/supabase');
 
+// ── helper: cargar ayudantes extra de un grupo ────────────────────────────
+const cargarAyudantesExtra = async (grupoId) => {
+  const { data } = await supabase
+    .from('grupo_ayudantes_extra')
+    .select('id, orden, ayudante:ayudante_id(id, nombre_completo, email)')
+    .eq('grupo_id', grupoId)
+    .order('orden');
+  return data || [];
+};
+
 // GET /api/grupos
 const listarGrupos = async (req, res) => {
   try {
     const { reunion_id } = req.query;
     let query = supabase
       .from('grupos')
-      .select(`id, nombre, edad_min, edad_max, ayudantes_checklist, activo, created_at,
+      .select(`id, nombre, edad_min, edad_max, ayudantes_checklist, activo, reunion_id, docente_id, ayudante1_id, ayudante2_id, created_at,
         reunion:reunion_id(id, nombre, hora_inicio, hora_fin),
         docente:docente_id(id, nombre_completo, email, foto_url),
         ayudante1:ayudante1_id(id, nombre_completo, email),
@@ -16,7 +26,6 @@ const listarGrupos = async (req, res) => {
 
     if (reunion_id) query = query.eq('reunion_id', reunion_id);
 
-    // Filtrar por rol: docente o ayudante ve solo sus grupos
     if (req.usuario.rol === 'docente') {
       query = query.eq('docente_id', req.usuario.id);
     } else if (req.usuario.rol === 'ayudante') {
@@ -25,7 +34,16 @@ const listarGrupos = async (req, res) => {
 
     const { data, error } = await query.order('nombre');
     if (error) throw error;
-    res.json({ success: true, grupos: data });
+
+    // Cargar ayudantes extra para cada grupo
+    const gruposConExtra = await Promise.all(
+      (data || []).map(async (g) => {
+        const ayudantesExtra = await cargarAyudantesExtra(g.id);
+        return { ...g, ayudantes_extra: ayudantesExtra };
+      })
+    );
+
+    res.json({ success: true, grupos: gruposConExtra });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
@@ -36,7 +54,7 @@ const obtenerGrupo = async (req, res) => {
   try {
     const { data, error } = await supabase
       .from('grupos')
-      .select(`*, 
+      .select(`*,
         reunion:reunion_id(id, nombre, hora_inicio, hora_fin),
         docente:docente_id(id, nombre_completo, email, foto_url),
         ayudante1:ayudante1_id(id, nombre_completo, email, foto_url),
@@ -45,8 +63,11 @@ const obtenerGrupo = async (req, res) => {
       `)
       .eq('id', req.params.id)
       .single();
+
     if (error) return res.status(404).json({ success: false, message: 'Grupo no encontrado' });
-    res.json({ success: true, grupo: data });
+
+    const ayudantesExtra = await cargarAyudantesExtra(req.params.id);
+    res.json({ success: true, grupo: { ...data, ayudantes_extra: ayudantesExtra } });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
@@ -55,7 +76,7 @@ const obtenerGrupo = async (req, res) => {
 // POST /api/grupos
 const crearGrupo = async (req, res) => {
   try {
-    const { nombre, reunion_id, docente_id, ayudante1_id, ayudante2_id, edad_min, edad_max } = req.body;
+    const { nombre, reunion_id, docente_id, ayudante1_id, ayudante2_id, edad_min, edad_max, ayudantes_extra } = req.body;
 
     if (parseInt(edad_max) <= parseInt(edad_min)) {
       return res.status(400).json({ success: false, message: 'La edad máxima debe ser mayor a la mínima' });
@@ -68,7 +89,19 @@ const crearGrupo = async (req, res) => {
       .single();
 
     if (error) throw error;
-    res.status(201).json({ success: true, grupo: data });
+
+    // Insertar ayudantes extra si los hay
+    if (ayudantes_extra && ayudantes_extra.length > 0) {
+      const filas = ayudantes_extra
+        .filter(id => id)
+        .map((ayudante_id, idx) => ({ grupo_id: data.id, ayudante_id, orden: idx + 3 }));
+      if (filas.length > 0) {
+        await supabase.from('grupo_ayudantes_extra').insert(filas);
+      }
+    }
+
+    const ayudantesExtraData = await cargarAyudantesExtra(data.id);
+    res.status(201).json({ success: true, grupo: { ...data, ayudantes_extra: ayudantesExtraData } });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
@@ -77,7 +110,8 @@ const crearGrupo = async (req, res) => {
 // PUT /api/grupos/:id
 const actualizarGrupo = async (req, res) => {
   try {
-    const { nombre, reunion_id, docente_id, ayudante1_id, ayudante2_id, edad_min, edad_max, ayudantes_checklist } = req.body;
+    const { nombre, reunion_id, docente_id, ayudante1_id, ayudante2_id, edad_min, edad_max, ayudantes_checklist, ayudantes_extra } = req.body;
+
     const updates = {};
     if (nombre) updates.nombre = nombre.trim();
     if (reunion_id) updates.reunion_id = reunion_id;
@@ -98,7 +132,20 @@ const actualizarGrupo = async (req, res) => {
       .from('grupos').update(updates).eq('id', req.params.id)
       .select(`*, reunion:reunion_id(nombre), docente:docente_id(nombre_completo)`).single();
     if (error) throw error;
-    res.json({ success: true, grupo: data });
+
+    // Actualizar ayudantes extra: borrar los actuales e insertar los nuevos
+    if (ayudantes_extra !== undefined) {
+      await supabase.from('grupo_ayudantes_extra').delete().eq('grupo_id', req.params.id);
+      const filas = (ayudantes_extra || [])
+        .filter(id => id)
+        .map((ayudante_id, idx) => ({ grupo_id: req.params.id, ayudante_id, orden: idx + 3 }));
+      if (filas.length > 0) {
+        await supabase.from('grupo_ayudantes_extra').insert(filas);
+      }
+    }
+
+    const ayudantesExtraData = await cargarAyudantesExtra(req.params.id);
+    res.json({ success: true, grupo: { ...data, ayudantes_extra: ayudantesExtraData } });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
