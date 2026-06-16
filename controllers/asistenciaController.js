@@ -308,13 +308,29 @@ const exportar = async (req, res) => {
       });
 
       // Anchos de columna
+      
       ws.columns = [
         { key: 'num',     width: 6  },
         { key: 'nombre',  width: 36 },
-        { key: 'hora',    width: 16 },
+        { key: 'hora',    width: 18 },
         { key: 'tarde',   width: 13 },
         { key: 'comment', width: 42 },
       ];
+
+      // ── Ajustar anchos automáticamente al contenido ──
+      ws.columns.forEach((col) => {
+        let maxLen = col.header ? col.header.length : 10;
+        col.eachCell({ includeEmpty: true }, (cell) => {
+          const val = cell.value ? String(cell.value) : '';
+          // No contar celdas fusionadas para el ancho
+          if (val.length > maxLen) maxLen = val.length;
+        });
+        col.width = Math.min(Math.max(maxLen + 4, 8), 60); // mínimo 8, máximo 60
+      });
+
+      // Altura dinámica según comentario
+      const comentarioLen = (a.comentario || '').length;
+      rData.height = comentarioLen > 80 ? 48 : comentarioLen > 40 ? 32 : 16;
 
       // ── helpers ──
       const azul       = '1E40AF';
