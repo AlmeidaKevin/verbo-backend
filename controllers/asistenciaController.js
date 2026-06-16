@@ -548,6 +548,47 @@ const exportar = async (req, res) => {
   }
 };
 
+// GET /api/asistencias/mis-registros  — solo registros de grupos del docente/ayudante
+const misRegistros = async (req, res) => {
+  try {
+    const { fecha_inicio, fecha_fin } = req.query;
+    const usuarioId = req.usuario.id;
+
+    // Obtener grupos donde es docente o ayudante
+    const { data: grupos } = await supabase
+      .from('grupos')
+      .select('id')
+      .or(`docente_id.eq.${usuarioId},ayudante1_id.eq.${usuarioId},ayudante2_id.eq.${usuarioId}`)
+      .eq('activo', true);
+
+    if (!grupos || grupos.length === 0) {
+      return res.json({ success: true, registros: [] });
+    }
+
+    const grupoIds = grupos.map(g => g.id);
+
+    let query = supabase
+      .from('registros_asistencia')
+      .select(`*, 
+        reunion:reunion_id(nombre, hora_inicio, hora_fin),
+        grupo:grupo_id(nombre, edad_min, edad_max),
+        registrado_por:registrado_por(nombre_completo)
+      `)
+      .in('grupo_id', grupoIds)
+      .not('guardado_at', 'is', null)
+      .order('fecha', { ascending: false });
+
+    if (fecha_inicio) query = query.gte('fecha', fecha_inicio);
+    if (fecha_fin) query = query.lte('fecha', fecha_fin);
+
+    const { data, error } = await query;
+    if (error) throw error;
+    res.json({ success: true, registros: data });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
 module.exports = {
   iniciarRegistro,
   registrosDelDia,
@@ -557,5 +598,6 @@ module.exports = {
   guardarRegistro,
   actualizarObservacion,
   historialRegistros,
+  misRegistros,
   exportar,
 };
