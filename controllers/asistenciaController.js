@@ -242,13 +242,13 @@ const exportar = async (req, res) => {
 
     const grupo = registro.grupo;
     const reunion = registro.reunion;
-    const rangoEdad = grupo ? `${grupo.edad_min} - ${grupo.edad_max} anos` : '';
+    const rangoEdad = grupo ? `${grupo.edad_min} - ${grupo.edad_max} años` : '';
     const nombreArchivo = `asistencia_${grupo?.nombre || 'grupo'}_${registro.fecha}`;
 
     // EXCEL
     if (formato === 'xlsx') {
       const wb = new ExcelJS.Workbook();
-      wb.creator = 'Verbo Manosca';
+      wb.creator = 'Verbo Mañosca';
       const ws = wb.addWorksheet('Asistencia', {
         pageSetup: { paperSize: 9, orientation: 'landscape' },
       });
