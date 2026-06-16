@@ -160,5 +160,36 @@ const eliminarGrupo = async (req, res) => {
     res.status(500).json({ success: false, message: err.message });
   }
 };
+// PUT /api/grupos/:id/checklist — admin o docente del grupo
+const toggleChecklist = async (req, res) => {
+  try {
+    const { ayudantes_checklist } = req.body;
+    const grupoId = req.params.id;
 
-module.exports = { listarGrupos, obtenerGrupo, crearGrupo, actualizarGrupo, eliminarGrupo };
+    // Verificar que el docente pertenece a este grupo
+    if (req.usuario.rol === 'docente') {
+      const { data: grupo } = await supabase
+        .from('grupos')
+        .select('docente_id')
+        .eq('id', grupoId)
+        .single();
+      if (!grupo || grupo.docente_id !== req.usuario.id) {
+        return res.status(403).json({ success: false, message: 'No eres el docente de este grupo' });
+      }
+    }
+
+    const { data, error } = await supabase
+      .from('grupos')
+      .update({ ayudantes_checklist })
+      .eq('id', grupoId)
+      .select('id, nombre, ayudantes_checklist')
+      .single();
+
+    if (error) throw error;
+    res.json({ success: true, grupo: data });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+module.exports = { listarGrupos, obtenerGrupo, crearGrupo, actualizarGrupo, eliminarGrupo, toggleChecklist };
