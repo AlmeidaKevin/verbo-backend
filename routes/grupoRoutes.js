@@ -7,6 +7,7 @@ const { reglasGrupo, validar } = require('../middleware/validarMiddleware');
 router.get('/', proteger, ctrl.listarGrupos);
 router.get('/:id', proteger, ctrl.obtenerGrupo);
 router.post('/', proteger, soloAdmin, [...reglasGrupo, validar], ctrl.crearGrupo);
+router.put('/:id/checklist', proteger, adminODocente, ctrl.toggleChecklist);
 router.put('/:id', proteger, soloAdmin, ctrl.actualizarGrupo);
 router.delete('/:id', proteger, soloAdmin, ctrl.eliminarGrupo);
 module.exports = router;
