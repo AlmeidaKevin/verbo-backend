@@ -1,5 +1,6 @@
 const supabase = require('../config/supabase');
 const XLSX = require('xlsx');
+const ExcelJS = require('exceljs');
 const PDFDocument = require('pdfkit');
 
 // ─── helpers ────────────────────────────────────────────────────────────────
@@ -297,63 +298,67 @@ const exportar = async (req, res) => {
     const nombreArchivo = `asistencia_${grupo?.nombre || 'grupo'}_${registro.fecha}`;
 
     // ── EXCEL ────────────────────────────────────────────────────────────────
-    // ── EXCEL con estilos y colores ──────────────────────────────────────────
+    // ── EXCEL con ExcelJS (colores reales) ───────────────────────────────────
     if (formato === 'xlsx') {
-      const wb = XLSX.utils.book_new();
-      const ws = {};
+      const ExcelJS = require('exceljs');
+      const wb = new ExcelJS.Workbook();
+      wb.creator = 'Verbo Mañosca';
+      const ws = wb.addWorksheet('Asistencia', {
+        pageSetup: { paperSize: 9, orientation: 'landscape' },
+      });
 
-      // Colores
-      const AZUL       = '1E40AF';
-      const AZUL_CLARO = 'DBEAFE';
-      const GRIS_CLARO = 'F8FAFC';
-      const NARANJA    = 'F97316';
-      const BLANCO     = 'FFFFFF';
-      const NEGRO      = '111827';
-      const AMARILLO   = 'FFFBEB';
-      const FILA_PAR   = 'F1F5F9';
+      // Anchos de columna
+      ws.columns = [
+        { key: 'num',     width: 6  },
+        { key: 'nombre',  width: 36 },
+        { key: 'hora',    width: 16 },
+        { key: 'tarde',   width: 13 },
+        { key: 'comment', width: 42 },
+      ];
 
-      let fila = 0; // 0-indexed
+      // ── helpers ──
+      const azul       = '1E40AF';
+      const azulClaro  = 'DBEAFE';
+      const grisClaro  = 'F1F5F9';
+      const infoBg     = 'F8FAFC';
+      const naranja    = 'F97316';
+      const amarillo   = 'FFFBEB';
+      const marron     = '92400E';
 
-      // ── Helpers de celda ──
-      const celda = (v, bold = false, bg = null, color = NEGRO, sz = 10, align = 'left') => {
-        const c = {
-          v,
-          t: typeof v === 'number' ? 'n' : 's',
-          s: {
-            font: { bold, color: { rgb: color }, sz },
-            alignment: { horizontal: align, vertical: 'center', wrapText: true },
-            fill: bg ? { fgColor: { rgb: bg } } : undefined,
-            border: {
-              top:    { style: 'thin', color: { rgb: 'E2E8F0' } },
-              bottom: { style: 'thin', color: { rgb: 'E2E8F0' } },
-              left:   { style: 'thin', color: { rgb: 'E2E8F0' } },
-              right:  { style: 'thin', color: { rgb: 'E2E8F0' } },
-            },
-          },
-        };
-        return c;
+      const borde = {
+        top:    { style: 'thin', color: { argb: 'FFE2E8F0' } },
+        bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+        left:   { style: 'thin', color: { argb: 'FFE2E8F0' } },
+        right:  { style: 'thin', color: { argb: 'FFE2E8F0' } },
       };
 
-      const set = (r, c, v, bold, bg, color, sz, align) => {
-        const addr = XLSX.utils.encode_cell({ r, c });
-        ws[addr] = celda(v, bold, bg, color, sz, align);
+      const fillSolid = (argb) => ({ type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + argb } });
+
+      const styleRow = (row, bgArgb, fontColor = '111827', bold = false, sz = 10, hCenter = false) => {
+        row.eachCell({ includeEmpty: true }, (cell) => {
+          cell.fill   = fillSolid(bgArgb);
+          cell.font   = { bold, color: { argb: 'FF' + fontColor }, size: sz };
+          cell.border = borde;
+          cell.alignment = { vertical: 'middle', horizontal: hCenter ? 'center' : 'left', wrapText: true };
+        });
       };
 
-      // ── Fila 0: Título principal ──
-      set(fila, 0, 'ESCUELA DOMINICAL VERBO MAÑOSCA', true, AZUL, BLANCO, 14, 'center');
-      ws['!merges'] = ws['!merges'] || [];
-      ws['!merges'].push({ s: { r: fila, c: 0 }, e: { r: fila, c: 4 } });
-      fila++;
+      // ── Fila 1: Título ──
+      const r1 = ws.addRow(['ESCUELA DOMINICAL VERBO MAÑOSCA', '', '', '', '']);
+      ws.mergeCells(`A${r1.number}:E${r1.number}`);
+      r1.height = 28;
+      styleRow(r1, azul, 'FFFFFF', true, 15, true);
 
-      // ── Fila 1: Subtítulo ──
-      set(fila, 0, 'Reporte de Asistencia', false, AZUL, BLANCO, 11, 'center');
-      ws['!merges'].push({ s: { r: fila, c: 0 }, e: { r: fila, c: 4 } });
-      fila++;
+      // ── Fila 2: Subtítulo ──
+      const r2 = ws.addRow(['Reporte de Asistencia', '', '', '', '']);
+      ws.mergeCells(`A${r2.number}:E${r2.number}`);
+      r2.height = 18;
+      styleRow(r2, azul, 'FFFFFF', false, 11, true);
 
       // ── Fila vacía ──
-      fila++;
+      ws.addRow([]);
 
-      // ── Bloque info (2 columnas) ──
+      // ── Info en pares ──
       const infoItems = [
         ['Reunión',          reunion?.nombre || ''],
         ['Horario',          reunion ? `${reunion.hora_inicio} – ${reunion.hora_fin}` : ''],
@@ -367,74 +372,84 @@ const exportar = async (req, res) => {
 
       for (let i = 0; i < infoItems.length; i += 2) {
         const [l1, v1] = infoItems[i];
-        set(fila, 0, l1, true,  GRIS_CLARO, NEGRO, 9);
-        set(fila, 1, v1, false, GRIS_CLARO, NEGRO, 9);
-        if (infoItems[i + 1]) {
-          const [l2, v2] = infoItems[i + 1];
-          set(fila, 2, l2, true,  GRIS_CLARO, NEGRO, 9);
-          set(fila, 3, v2, false, GRIS_CLARO, NEGRO, 9);
-          set(fila, 4, '',  false, GRIS_CLARO, NEGRO, 9);
-        }
-        fila++;
+        const [l2, v2] = infoItems[i + 1] || ['', ''];
+        const row = ws.addRow([l1, v1, l2, v2, '']);
+        row.height = 16;
+        row.eachCell({ includeEmpty: true }, (cell, colNum) => {
+          cell.fill   = fillSolid(infoBg);
+          cell.border = borde;
+          cell.font   = { bold: colNum === 1 || colNum === 3, size: 9, color: { argb: 'FF111827' } };
+          cell.alignment = { vertical: 'middle', wrapText: true };
+        });
       }
 
       // ── Observación general ──
       if (registro.observacion_general) {
-        fila++;
-        set(fila, 0, 'Observación general:', true,  AMARILLO, '92400E', 9);
-        set(fila, 1, registro.observacion_general, false, AMARILLO, NEGRO, 9);
-        ws['!merges'].push({ s: { r: fila, c: 1 }, e: { r: fila, c: 4 } });
-        fila++;
+        ws.addRow([]);
+        const rObs1 = ws.addRow(['Observación general:', '', '', '', '']);
+        ws.mergeCells(`A${rObs1.number}:E${rObs1.number}`);
+        styleRow(rObs1, amarillo, marron, true, 9);
+
+        const rObs2 = ws.addRow([registro.observacion_general, '', '', '', '']);
+        ws.mergeCells(`A${rObs2.number}:E${rObs2.number}`);
+        rObs2.height = 32;
+        styleRow(rObs2, amarillo, '111827', false, 9);
+        rObs2.getCell(1).alignment = { wrapText: true, vertical: 'middle' };
       }
 
       // ── Fila vacía ──
-      fila++;
+      ws.addRow([]);
 
       // ── Cabecera de tabla ──
-      const headers = ['#', 'Nombre del Niño', 'Hora de Llegada', 'Llegó Tarde', 'Comentario / Nota'];
-      headers.forEach((h, c) => {
-        set(fila, c, h, true, AZUL, BLANCO, 10, 'center');
-      });
-      fila++;
+      const rHead = ws.addRow(['#', 'Nombre del Niño', 'Hora de Llegada', 'Llegó Tarde', 'Comentario / Nota']);
+      rHead.height = 20;
+      styleRow(rHead, azul, 'FFFFFF', true, 10, true);
 
       // ── Filas de datos ──
       asistencias.forEach((a, idx) => {
-        const bg = idx % 2 === 0 ? BLANCO : FILA_PAR;
+        const bg = idx % 2 === 0 ? 'FFFFFF' : grisClaro;
         const tarde = a.llego_tarde ? 'Sí' : 'No';
-        set(fila, 0, idx + 1,                          false, bg, NEGRO,   10, 'center');
-        set(fila, 1, a.nino?.nombre_completo || 'N/A', false, bg, NEGRO,   10);
-        set(fila, 2, fmtHora(a.hora_llegada),           false, bg, NEGRO,   10, 'center');
-        set(fila, 3, tarde,                             true,  bg, tarde === 'Sí' ? NARANJA : NEGRO, 10, 'center');
-        set(fila, 4, a.comentario || '',                false, bg, NEGRO,   10);
-        fila++;
+        const rData = ws.addRow([
+          idx + 1,
+          a.nino?.nombre_completo || 'N/A',
+          fmtHora(a.hora_llegada),
+          tarde,
+          a.comentario || '',
+        ]);
+        rData.height = 16;
+        rData.eachCell({ includeEmpty: true }, (cell, colNum) => {
+          cell.fill   = fillSolid(bg);
+          cell.border = borde;
+          cell.alignment = { vertical: 'middle', horizontal: colNum <= 1 || colNum === 3 || colNum === 4 ? 'center' : 'left', wrapText: true };
+          const isTarde = colNum === 4 && tarde === 'Sí';
+          cell.font = {
+            bold:  isTarde,
+            size:  10,
+            color: { argb: isTarde ? 'FF' + naranja : 'FF111827' },
+          };
+        });
       });
 
       // ── Fila total ──
-      set(fila, 0, `Total: ${asistencias.length} asistentes`, true, AZUL_CLARO, AZUL, 10, 'center');
-      ws['!merges'].push({ s: { r: fila, c: 0 }, e: { r: fila, c: 4 } });
-      fila++;
+      const rTotal = ws.addRow([`Total de asistentes: ${asistencias.length}`, '', '', '', '']);
+      ws.mergeCells(`A${rTotal.number}:E${rTotal.number}`);
+      rTotal.height = 18;
+      styleRow(rTotal, azulClaro, azul, true, 10, true);
 
-      // ── Rango y anchos ──
-      ws['!ref'] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: fila, c: 4 } });
-      ws['!cols'] = [
-        { wch: 5  },  // #
-        { wch: 35 },  // Nombre
-        { wch: 16 },  // Hora
-        { wch: 12 },  // Tarde
-        { wch: 40 },  // Comentario
-      ];
-      // Altura de filas grandes
-      ws['!rows'] = [];
-      ws['!rows'][0] = { hpt: 28 }; // título
-      ws['!rows'][1] = { hpt: 20 }; // subtítulo
+      // ── Fila generado ──
+      ws.addRow([]);
+      const rFecha = ws.addRow([`Generado el ${new Date().toLocaleString('es-EC', { timeZone: 'America/Guayaquil' })}`, '', '', '', '']);
+      ws.mergeCells(`A${rFecha.number}:E${rFecha.number}`);
+      styleRow(rFecha, 'FFFFFF', '6B7280', false, 8);
 
-      XLSX.utils.book_append_sheet(wb, ws, 'Asistencia');
-      const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
-
+      // ── Enviar ──
       res.setHeader('Content-Disposition', `attachment; filename="${nombreArchivo}.xlsx"`);
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-      return res.send(buffer);
+      await wb.xlsx.write(res);
+      res.end();
+      return;
     }
+
     // ── PDF ──────────────────────────────────────────────────────────────────
     if (formato === 'pdf') {
       const doc = new PDFDocument({ margin: 45, size: 'A4' });
