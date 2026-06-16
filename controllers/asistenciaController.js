@@ -378,7 +378,7 @@ const exportar = async (req, res) => {
           cell.font      = { bold: isTarde, size: 10, color: { argb: isTarde ? 'FF' + naranja : 'FF111827' } };
           cell.alignment = {
             vertical:   'middle',
-            horizontal: colNum === 5 ? 'left' : 'center',
+            horizontal: (colNum === 2 || colNum === 5) ? 'left' : 'center',
             wrapText:   true,
           };
         });
@@ -520,7 +520,7 @@ const exportar = async (req, res) => {
           doc.fillColor(color)
             .font(i === 3 && v === 'Si' ? 'Helvetica-Bold' : 'Helvetica')
             .fontSize(8)
-            .text(v, x + 4, y + 5, { width: colWidths[i] - 6, align: i === 4 ? 'left' : 'center' });
+            .text(v, x + 4, y + 5, { width: colWidths[i] - 6, align: (i === 1 || i === 4) ? 'left' : 'center' });
           x += colWidths[i];
         });
         doc.moveTo(col1, y + rowH).lineTo(col1 + pageW, y + rowH).strokeColor('#e2e8f0').lineWidth(0.5).stroke();
