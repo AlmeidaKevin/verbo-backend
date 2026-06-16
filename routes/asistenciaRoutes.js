@@ -5,6 +5,7 @@ const { proteger } = require('../middleware/authMiddleware');
 
 router.post('/registro', proteger, ctrl.iniciarRegistro);
 router.get('/registros-del-dia', proteger, ctrl.registrosDelDia);
+router.get('/mis-registros', proteger, ctrl.misRegistros);
 router.get('/historial', proteger, ctrl.historialRegistros);
 router.get('/exportar/:registro_id', proteger, ctrl.exportar);
 router.post('/marcar', proteger, ctrl.marcarAsistencia);
