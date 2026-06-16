@@ -297,64 +297,144 @@ const exportar = async (req, res) => {
     const nombreArchivo = `asistencia_${grupo?.nombre || 'grupo'}_${registro.fecha}`;
 
     // ── EXCEL ────────────────────────────────────────────────────────────────
+    // ── EXCEL con estilos y colores ──────────────────────────────────────────
     if (formato === 'xlsx') {
       const wb = XLSX.utils.book_new();
-      const ws = XLSX.utils.aoa_to_sheet([]);
+      const ws = {};
 
-      // Cabecera informativa
-      const encabezado = [
-        ['ESCUELA DOMINICAL VERBO MAÑOSCA'],
-        ['Reporte de Asistencia'],
-        [],
-        ['Reunión:', reunion?.nombre || ''],
-        ['Horario:', reunion ? `${reunion.hora_inicio} – ${reunion.hora_fin}` : ''],
-        ['Grupo:', grupo?.nombre || ''],
-        ['Rango de edad:', rangoEdad],
-        ['Fecha:', registro.fecha],
-        ['Primer ingreso:', fmt(registro.hora_primer_visto)],
-        ['Último ingreso:', fmt(registro.hora_ultimo_visto)],
-        ['Total asistentes:', asistencias.length],
+      // Colores
+      const AZUL       = '1E40AF';
+      const AZUL_CLARO = 'DBEAFE';
+      const GRIS_CLARO = 'F8FAFC';
+      const NARANJA    = 'F97316';
+      const BLANCO     = 'FFFFFF';
+      const NEGRO      = '111827';
+      const AMARILLO   = 'FFFBEB';
+      const FILA_PAR   = 'F1F5F9';
+
+      let fila = 0; // 0-indexed
+
+      // ── Helpers de celda ──
+      const celda = (v, bold = false, bg = null, color = NEGRO, sz = 10, align = 'left') => {
+        const c = {
+          v,
+          t: typeof v === 'number' ? 'n' : 's',
+          s: {
+            font: { bold, color: { rgb: color }, sz },
+            alignment: { horizontal: align, vertical: 'center', wrapText: true },
+            fill: bg ? { fgColor: { rgb: bg } } : undefined,
+            border: {
+              top:    { style: 'thin', color: { rgb: 'E2E8F0' } },
+              bottom: { style: 'thin', color: { rgb: 'E2E8F0' } },
+              left:   { style: 'thin', color: { rgb: 'E2E8F0' } },
+              right:  { style: 'thin', color: { rgb: 'E2E8F0' } },
+            },
+          },
+        };
+        return c;
+      };
+
+      const set = (r, c, v, bold, bg, color, sz, align) => {
+        const addr = XLSX.utils.encode_cell({ r, c });
+        ws[addr] = celda(v, bold, bg, color, sz, align);
+      };
+
+      // ── Fila 0: Título principal ──
+      set(fila, 0, 'ESCUELA DOMINICAL VERBO MAÑOSCA', true, AZUL, BLANCO, 14, 'center');
+      ws['!merges'] = ws['!merges'] || [];
+      ws['!merges'].push({ s: { r: fila, c: 0 }, e: { r: fila, c: 4 } });
+      fila++;
+
+      // ── Fila 1: Subtítulo ──
+      set(fila, 0, 'Reporte de Asistencia', false, AZUL, BLANCO, 11, 'center');
+      ws['!merges'].push({ s: { r: fila, c: 0 }, e: { r: fila, c: 4 } });
+      fila++;
+
+      // ── Fila vacía ──
+      fila++;
+
+      // ── Bloque info (2 columnas) ──
+      const infoItems = [
+        ['Reunión',          reunion?.nombre || ''],
+        ['Horario',          reunion ? `${reunion.hora_inicio} – ${reunion.hora_fin}` : ''],
+        ['Grupo',            grupo?.nombre || ''],
+        ['Rango de edad',    rangoEdad],
+        ['Fecha',            registro.fecha],
+        ['Primer ingreso',   fmt(registro.hora_primer_visto)],
+        ['Último ingreso',   fmt(registro.hora_ultimo_visto)],
+        ['Total asistentes', String(asistencias.length)],
       ];
 
-      if (registro.observacion_general) {
-        encabezado.push(['Observación general:', registro.observacion_general]);
+      for (let i = 0; i < infoItems.length; i += 2) {
+        const [l1, v1] = infoItems[i];
+        set(fila, 0, l1, true,  GRIS_CLARO, NEGRO, 9);
+        set(fila, 1, v1, false, GRIS_CLARO, NEGRO, 9);
+        if (infoItems[i + 1]) {
+          const [l2, v2] = infoItems[i + 1];
+          set(fila, 2, l2, true,  GRIS_CLARO, NEGRO, 9);
+          set(fila, 3, v2, false, GRIS_CLARO, NEGRO, 9);
+          set(fila, 4, '',  false, GRIS_CLARO, NEGRO, 9);
+        }
+        fila++;
       }
-      encabezado.push([]);
 
-      XLSX.utils.sheet_add_aoa(ws, encabezado, { origin: 'A1' });
+      // ── Observación general ──
+      if (registro.observacion_general) {
+        fila++;
+        set(fila, 0, 'Observación general:', true,  AMARILLO, '92400E', 9);
+        set(fila, 1, registro.observacion_general, false, AMARILLO, NEGRO, 9);
+        ws['!merges'].push({ s: { r: fila, c: 1 }, e: { r: fila, c: 4 } });
+        fila++;
+      }
 
-      // Tabla de datos
-      const filas = asistencias.map((a, i) => ({
-        '#': i + 1,
-        'Nombre del Niño': a.nino?.nombre_completo || 'N/A',
-        'Hora de Llegada': fmtHora(a.hora_llegada),
-        'Llegó Tarde': a.llego_tarde ? 'Sí' : 'No',
-        'Comentario / Nota': a.comentario || '',
-      }));
+      // ── Fila vacía ──
+      fila++;
 
-      const dataStartRow = encabezado.length + 1;
-      XLSX.utils.sheet_add_json(ws, filas, { origin: { r: dataStartRow, c: 0 } });
+      // ── Cabecera de tabla ──
+      const headers = ['#', 'Nombre del Niño', 'Hora de Llegada', 'Llegó Tarde', 'Comentario / Nota'];
+      headers.forEach((h, c) => {
+        set(fila, c, h, true, AZUL, BLANCO, 10, 'center');
+      });
+      fila++;
 
-      // Anchos de columna
+      // ── Filas de datos ──
+      asistencias.forEach((a, idx) => {
+        const bg = idx % 2 === 0 ? BLANCO : FILA_PAR;
+        const tarde = a.llego_tarde ? 'Sí' : 'No';
+        set(fila, 0, idx + 1,                          false, bg, NEGRO,   10, 'center');
+        set(fila, 1, a.nino?.nombre_completo || 'N/A', false, bg, NEGRO,   10);
+        set(fila, 2, fmtHora(a.hora_llegada),           false, bg, NEGRO,   10, 'center');
+        set(fila, 3, tarde,                             true,  bg, tarde === 'Sí' ? NARANJA : NEGRO, 10, 'center');
+        set(fila, 4, a.comentario || '',                false, bg, NEGRO,   10);
+        fila++;
+      });
+
+      // ── Fila total ──
+      set(fila, 0, `Total: ${asistencias.length} asistentes`, true, AZUL_CLARO, AZUL, 10, 'center');
+      ws['!merges'].push({ s: { r: fila, c: 0 }, e: { r: fila, c: 4 } });
+      fila++;
+
+      // ── Rango y anchos ──
+      ws['!ref'] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: fila, c: 4 } });
       ws['!cols'] = [
-        { wch: 5 },   // #
+        { wch: 5  },  // #
         { wch: 35 },  // Nombre
         { wch: 16 },  // Hora
         { wch: 12 },  // Tarde
         { wch: 40 },  // Comentario
       ];
+      // Altura de filas grandes
+      ws['!rows'] = [];
+      ws['!rows'][0] = { hpt: 28 }; // título
+      ws['!rows'][1] = { hpt: 20 }; // subtítulo
 
       XLSX.utils.book_append_sheet(wb, ws, 'Asistencia');
       const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
 
       res.setHeader('Content-Disposition', `attachment; filename="${nombreArchivo}.xlsx"`);
-      res.setHeader(
-        'Content-Type',
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-      );
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
       return res.send(buffer);
     }
-
     // ── PDF ──────────────────────────────────────────────────────────────────
     if (formato === 'pdf') {
       const doc = new PDFDocument({ margin: 45, size: 'A4' });
