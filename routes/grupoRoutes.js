@@ -3,7 +3,7 @@ const router = express.Router();
 const ctrl = require('../controllers/grupoController');
 const { proteger, soloAdmin, adminODocente } = require('../middleware/authMiddleware');
 const { reglasGrupo, validar } = require('../middleware/validarMiddleware');
-
+router.get('/publico', ctrl.listarGruposPublico);
 router.get('/', proteger, ctrl.listarGrupos);
 router.get('/:id', proteger, ctrl.obtenerGrupo);
 router.post('/', proteger, soloAdmin, [...reglasGrupo, validar], ctrl.crearGrupo);
