@@ -84,5 +84,19 @@ const eliminarReunion = async (req, res) => {
     res.status(500).json({ success: false, message: err.message });
   }
 };
+// GET /api/reuniones/publico — sin auth
+const listarReunionesPublico = async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('reuniones')
+      .select('id, nombre, hora_inicio, hora_fin')
+      .eq('activo', true)
+      .order('hora_inicio');
+    if (error) throw error;
+    res.json({ success: true, reuniones: data });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
 
-module.exports = { listarReuniones, obtenerReunion, crearReunion, actualizarReunion, eliminarReunion };
+module.exports = { listarReuniones, obtenerReunion, crearReunion, actualizarReunion, eliminarReunion, listarReunionesPublico};
