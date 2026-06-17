@@ -139,20 +139,47 @@ const eliminarPublicacion = async (req, res) => {
 };
 
 // GET /api/publicaciones/publico — para niños (sin auth)
+// REEMPLAZA solo esta función en publicacionController.js
 const publicacionesPublicas = async (req, res) => {
   try {
-    const { data, error } = await supabase
+    const { reunion_id, grupo_id } = req.query;
+
+    // ── Tareas filtradas ──────────────────────────────────────
+    let tareasQuery = supabase
       .from('tareas')
       .select(`titulo, descripcion, archivos, created_at,
         publicado_por:publicado_por(nombre_completo),
-        reunion:reunion_id(nombre, hora_inicio, hora_fin),
-        grupo:grupo_id(nombre)
+        reunion:reunion_id(id, nombre, hora_inicio, hora_fin),
+        grupo:grupo_id(id, nombre)
       `)
       .eq('activo', true)
       .order('created_at', { ascending: false })
+      .limit(20);
+
+    // Filtrar por reunión
+    if (reunion_id) {
+      tareasQuery = tareasQuery.eq('reunion_id', reunion_id);
+    }
+    // Filtrar por grupo
+    if (grupo_id) {
+      tareasQuery = tareasQuery.eq('grupo_id', grupo_id);
+    }
+
+    const { data: tareas, error: tareasError } = await tareasQuery;
+    if (tareasError) throw tareasError;
+
+    // ── Publicaciones por_grupo ───────────────────────────────
+    const { data: pubs } = await supabase
+      .from('publicaciones')
+      .select(`titulo, contenido, archivos, created_at, tipo_destinatario, destinatarios_ids,
+        publicado_por:publicado_por(nombre_completo)
+      `)
+      .eq('activo', true)
+      .eq('tipo_destinatario', 'por_grupo')
+      .order('created_at', { ascending: false })
       .limit(10);
-    if (error) throw error;
-    res.json({ success: true, contenidos: data });
+
+    res.json({ success: true, contenidos: tareas || [], publicaciones: pubs || [] });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
