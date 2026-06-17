@@ -191,5 +191,22 @@ const toggleChecklist = async (req, res) => {
     res.status(500).json({ success: false, message: err.message });
   }
 };
+// GET /api/grupos/publico — sin auth
+const listarGruposPublico = async (req, res) => {
+  try {
+    const { reunion_id } = req.query;
+    let query = supabase
+      .from('grupos')
+      .select('id, nombre, edad_min, edad_max, reunion_id')
+      .eq('activo', true)
+      .order('nombre');
+    if (reunion_id) query = query.eq('reunion_id', reunion_id);
+    const { data, error } = await query;
+    if (error) throw error;
+    res.json({ success: true, grupos: data });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
 
-module.exports = { listarGrupos, obtenerGrupo, crearGrupo, actualizarGrupo, eliminarGrupo, toggleChecklist };
+module.exports = { listarGrupos, obtenerGrupo, crearGrupo, actualizarGrupo, eliminarGrupo, toggleChecklist, listarGruposPublico};
