@@ -9,7 +9,7 @@ const { reglasUsuario, validar } = require('../middleware/validarMiddleware');
 
 routerU.get('/', proteger, listarUsuarios);
 routerU.get('/:id', proteger, obtenerUsuario);
-routerU.put('/:id', proteger, soloAdmin, [...reglasUsuario, validar], actualizarUsuario);
+routerU.put('/:id', proteger, soloAdmin, actualizarUsuario);
 routerU.delete('/:id', proteger, soloAdmin, eliminarUsuario);
 
 module.exports = routerU;
