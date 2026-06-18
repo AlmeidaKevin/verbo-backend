@@ -150,7 +150,6 @@ const eliminarPublicacion = async (req, res) => {
 };
 
 // GET /api/publicaciones/publico — para niños (sin auth)
-// REEMPLAZA solo esta función en publicacionController.js
 const publicacionesPublicas = async (req, res) => {
   try {
     const { reunion_id, grupo_id } = req.query;
@@ -167,28 +166,25 @@ const publicacionesPublicas = async (req, res) => {
       .order('created_at', { ascending: false })
       .limit(20);
 
-    // Filtrar por reunión
-    if (reunion_id) {
-      tareasQuery = tareasQuery.eq('reunion_id', reunion_id);
-    }
-    // Filtrar por grupo
-    if (grupo_id) {
-      tareasQuery = tareasQuery.eq('grupo_id', grupo_id);
-    }
+    if (reunion_id) tareasQuery = tareasQuery.eq('reunion_id', reunion_id);
+    if (grupo_id) tareasQuery = tareasQuery.eq('grupo_id', grupo_id);
 
     const { data: tareas, error: tareasError } = await tareasQuery;
     if (tareasError) throw tareasError;
 
-    // ── Publicaciones por_grupo ───────────────────────────────
-    const { data: pubs } = await supabase
+    // ── Publicaciones visibles para niños ─────────────────────
+    // Solo los tipos que incluyen niños: grupos_con_ninos y grupo_especifico_con_ninos
+    const { data: pubs, error: pubsError } = await supabase
       .from('publicaciones')
-      .select(`titulo, contenido, archivos, created_at, tipo_destinatario, destinatarios_ids,
+      .select(`id, titulo, contenido, archivos, created_at, tipo_destinatario, destinatarios_ids,
         publicado_por:publicado_por(nombre_completo)
       `)
       .eq('activo', true)
-      .eq('tipo_destinatario', 'por_grupo')
+      .in('tipo_destinatario', ['grupos_con_ninos', 'grupo_especifico_con_ninos'])
       .order('created_at', { ascending: false })
-      .limit(10);
+      .limit(20);
+
+    if (pubsError) throw pubsError;
 
     res.json({ success: true, contenidos: tareas || [], publicaciones: pubs || [] });
   } catch (err) {
