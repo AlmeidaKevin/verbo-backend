@@ -64,13 +64,13 @@ const crearPublicacion = async (req, res) => {
         destinatarios_ids: parsedDestinatarios,
         archivos: archivosGuardados,
       })
-      .select(`*, publicado_por:publicado_por(nombre_completo)`)
+      .select(`*, publicado_por:publicado_por(id, nombre_completo, foto_url, rol)`)
       .single();
 
     if (error) throw error;
 
-    // Enviar emails según tipo destinatario
-    await enviarNotificacionPublicacion(data, parsedDestinatarios, tipo_destinatario);
+    // Enviar emails en background sin bloquear la respuesta
+    enviarNotificacionPublicacion(data, parsedDestinatarios, tipo_destinatario).catch(console.error);
 
     res.status(201).json({ success: true, publicacion: data });
   } catch (err) {
@@ -81,15 +81,26 @@ const crearPublicacion = async (req, res) => {
 const enviarNotificacionPublicacion = async (publicacion, destinatariosIds, tipo) => {
   try {
     let emails = [];
-    if (tipo === 'todos') {
+
+    if (tipo === 'todos' || tipo === 'grupos_con_ninos' || tipo === 'grupos_sin_ninos') {
       const { data } = await supabase.from('usuarios').select('email').eq('activo', true).neq('rol', 'admin');
       emails = data?.map(u => u.email) || [];
-    } else if (tipo === 'solo_docentes') {
-      const { data } = await supabase.from('usuarios').select('email').eq('rol', 'docente').eq('activo', true);
-      emails = data?.map(u => u.email) || [];
-    } else if (tipo === 'solo_ayudantes') {
-      const { data } = await supabase.from('usuarios').select('email').eq('rol', 'ayudante').eq('activo', true);
-      emails = data?.map(u => u.email) || [];
+    } else if (tipo === 'solo_docentes' || tipo === 'docentes_especificos') {
+      if (tipo === 'solo_docentes') {
+        const { data } = await supabase.from('usuarios').select('email').eq('rol', 'docente').eq('activo', true);
+        emails = data?.map(u => u.email) || [];
+      } else {
+        const { data } = await supabase.from('usuarios').select('email').in('id', destinatariosIds).eq('activo', true);
+        emails = data?.map(u => u.email) || [];
+      }
+    } else if (tipo === 'solo_ayudantes' || tipo === 'ayudantes_especificos') {
+      if (tipo === 'solo_ayudantes') {
+        const { data } = await supabase.from('usuarios').select('email').eq('rol', 'ayudante').eq('activo', true);
+        emails = data?.map(u => u.email) || [];
+      } else {
+        const { data } = await supabase.from('usuarios').select('email').in('id', destinatariosIds).eq('activo', true);
+        emails = data?.map(u => u.email) || [];
+      }
     } else if (destinatariosIds.length > 0) {
       const { data } = await supabase.from('usuarios').select('email').in('id', destinatariosIds).eq('activo', true);
       emails = data?.map(u => u.email) || [];
@@ -100,14 +111,14 @@ const enviarNotificacionPublicacion = async (publicacion, destinatariosIds, tipo
         to: emails.join(','),
         subject: `Nueva publicación: ${publicacion.titulo}`,
         html: `<div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;padding:20px">
-          <h2 style="color:#6366f1">${publicacion.titulo}</h2>
+          <h2 style="color:#1F4E5F">${publicacion.titulo}</h2>
           <p>${publicacion.contenido}</p>
-          <a href="${process.env.FRONTEND_URL}/dashboard" style="background:#6366f1;color:white;padding:10px 20px;text-decoration:none;border-radius:6px">Ver en el sistema</a>
+          <a href="${process.env.FRONTEND_URL}/dashboard" style="background:#1F4E5F;color:white;padding:10px 20px;text-decoration:none;border-radius:6px">Ver en el sistema</a>
         </div>`,
       });
     }
   } catch (e) {
-    console.error('Error enviando emails de publicación:', e.message);
+    console.error('Error enviando emails:', e.message);
   }
 };
 
