@@ -194,10 +194,78 @@ const publicacionesPublicas = async (req, res) => {
   }
 };
 
+// GET /api/publicaciones/no-vistas — cuántas publicaciones nuevas tiene el usuario
+const contarNoVistas = async (req, res) => {
+  try {
+    const userId = req.usuario.id;
+
+    // Obtener IDs de publicaciones ya vistas
+    const { data: vistas } = await supabase
+      .from('publicaciones_vistas')
+      .select('publicacion_id')
+      .eq('usuario_id', userId);
+
+    const idsVistos = (vistas || []).map(v => v.publicacion_id);
+
+    // Contar publicaciones que le aplican y no ha visto
+    let query = supabase
+      .from('publicaciones')
+      .select('id', { count: 'exact', head: true })
+      .eq('activo', true);
+
+    if (req.usuario.rol !== 'admin') {
+      query = query.or(
+        `tipo_destinatario.eq.todos,` +
+        `tipo_destinatario.eq.grupos_con_ninos,` +
+        `tipo_destinatario.eq.grupos_sin_ninos,` +
+        `and(tipo_destinatario.eq.solo_docentes,${req.usuario.rol === 'docente' ? 'tipo_destinatario.eq.solo_docentes' : 'tipo_destinatario.eq.NONE'}),` +
+        `and(tipo_destinatario.eq.solo_ayudantes,${req.usuario.rol === 'ayudante' ? 'tipo_destinatario.eq.solo_ayudantes' : 'tipo_destinatario.eq.NONE'}),` +
+        `destinatarios_ids.cs.{${userId}}`
+      );
+    }
+
+    if (idsVistos.length > 0) {
+      query = query.not('id', 'in', `(${idsVistos.join(',')})`);
+    }
+
+    const { count } = await query;
+    res.json({ success: true, no_vistas: count || 0 });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// POST /api/publicaciones/marcar-vistas — marcar publicaciones como vistas
+const marcarVistas = async (req, res) => {
+  try {
+    const userId = req.usuario.id;
+    const { publicacion_ids } = req.body; // array de IDs
+
+    if (!publicacion_ids || publicacion_ids.length === 0) {
+      return res.json({ success: true });
+    }
+
+    const filas = publicacion_ids.map(pid => ({
+      usuario_id: userId,
+      publicacion_id: pid,
+    }));
+
+    await supabase
+      .from('publicaciones_vistas')
+      .upsert(filas, { onConflict: 'usuario_id,publicacion_id', ignoreDuplicates: true });
+
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
 module.exports = {
   listarPublicaciones,
   crearPublicacion,
   actualizarPublicacion,
   eliminarPublicacion,
   publicacionesPublicas,
+  contarNoVistas,
+  marcarVistas,
 };
