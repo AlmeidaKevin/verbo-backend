@@ -1,7 +1,7 @@
 // routes/authRoutes.js
 const express = require('express');
 const router = express.Router();
-const { login, crearUsuario, olvidéPassword, resetPassword, obtenerPerfil, actualizarPerfil, cambiarPassword } = require('../controllers/authController');
+const { login, crearUsuario, olvidéPassword, resetPassword, obtenerPerfil, actualizarPerfil, cambiarPassword, verificarCuenta } = require('../controllers/authController');
 const { proteger, soloAdmin } = require('../middleware/authMiddleware');
 const { reglasUsuario, reglasPassword, validar } = require('../middleware/validarMiddleware');
 const { uploadFoto } = require('../middleware/uploadMiddleware');
@@ -12,7 +12,7 @@ router.post('/olvide-password', olvidéPassword);
 router.post('/reset-password/:token', [...reglasPassword, validar], resetPassword);
 router.post('/crear-usuario', proteger, soloAdmin, [...reglasUsuario, ...reglasPassword, validar], crearUsuario);
 
-router.get('/verificar/:token', ctrl.verificarCuenta);
+router.get('/verificar/:token', verificarCuenta);
 router.get('/perfil', proteger, obtenerPerfil);
 router.put('/perfil', proteger, actualizarPerfil);
 router.put('/cambiar-password', proteger, [...reglasPassword.map(r => r.customWithMessage ? r : r), validar], cambiarPassword);
