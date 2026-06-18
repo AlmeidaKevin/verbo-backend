@@ -12,6 +12,7 @@ router.post('/olvide-password', olvidéPassword);
 router.post('/reset-password/:token', [...reglasPassword, validar], resetPassword);
 router.post('/crear-usuario', proteger, soloAdmin, [...reglasUsuario, ...reglasPassword, validar], crearUsuario);
 
+router.get('/verificar/:token', ctrl.verificarCuenta);
 router.get('/perfil', proteger, obtenerPerfil);
 router.put('/perfil', proteger, actualizarPerfil);
 router.put('/cambiar-password', proteger, [...reglasPassword.map(r => r.customWithMessage ? r : r), validar], cambiarPassword);
