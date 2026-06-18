@@ -84,7 +84,12 @@ const reglasPublicacion = [
   body('titulo').trim().notEmpty().withMessage('El título es requerido'),
   body('contenido').trim().notEmpty().withMessage('El contenido es requerido'),
   body('tipo_destinatario')
-    .isIn(['todos', 'solo_docentes', 'solo_ayudantes', 'por_grupo', 'individual'])
+    .isIn([
+      'todos', 'solo_docentes', 'solo_ayudantes',
+      'docentes_especificos', 'ayudantes_especificos',
+      'grupos_con_ninos', 'grupos_sin_ninos',
+      'grupo_especifico_con_ninos', 'grupo_especifico_sin_ninos'
+    ])
     .withMessage('Tipo de destinatario inválido'),
 ];
 
