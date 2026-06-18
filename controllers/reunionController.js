@@ -41,6 +41,21 @@ const crearReunion = async (req, res) => {
     if (hora_inicio >= hora_fin) {
       return res.status(400).json({ success: false, message: 'La hora de inicio debe ser menor a la hora de fin' });
     }
+
+    // Verificar duplicado: mismo nombre Y mismo horario
+    const { data: existente } = await supabase
+      .from('reuniones')
+      .select('id')
+      .eq('nombre', nombre.trim())
+      .eq('hora_inicio', hora_inicio)
+      .eq('hora_fin', hora_fin)
+      .eq('activo', true)
+      .maybeSingle();
+
+    if (existente) {
+      return res.status(400).json({ success: false, message: 'Ya existe una reunión con ese nombre y horario' });
+    }
+
     const { data, error } = await supabase
       .from('reuniones')
       .insert({ nombre: nombre.trim(), hora_inicio, hora_fin, descripcion })
@@ -53,6 +68,9 @@ const crearReunion = async (req, res) => {
   }
 };
 
+
+
+
 // PUT /api/reuniones/:id
 const actualizarReunion = async (req, res) => {
   try {
@@ -60,6 +78,24 @@ const actualizarReunion = async (req, res) => {
     if (hora_inicio && hora_fin && hora_inicio >= hora_fin) {
       return res.status(400).json({ success: false, message: 'La hora de inicio debe ser menor a la hora de fin' });
     }
+
+    // Verificar duplicado excluyendo la reunión actual
+    if (nombre && hora_inicio && hora_fin) {
+      const { data: existente } = await supabase
+        .from('reuniones')
+        .select('id')
+        .eq('nombre', nombre.trim())
+        .eq('hora_inicio', hora_inicio)
+        .eq('hora_fin', hora_fin)
+        .eq('activo', true)
+        .neq('id', req.params.id)
+        .maybeSingle();
+
+      if (existente) {
+        return res.status(400).json({ success: false, message: 'Ya existe una reunión con ese nombre y horario' });
+      }
+    }
+
     const updates = {};
     if (nombre) updates.nombre = nombre.trim();
     if (hora_inicio) updates.hora_inicio = hora_inicio;
@@ -74,6 +110,8 @@ const actualizarReunion = async (req, res) => {
     res.status(500).json({ success: false, message: err.message });
   }
 };
+
+
 
 // DELETE /api/reuniones/:id
 const eliminarReunion = async (req, res) => {
