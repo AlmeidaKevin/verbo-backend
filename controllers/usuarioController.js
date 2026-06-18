@@ -8,7 +8,7 @@ const listarUsuarios = async (req, res) => {
     const { rol } = req.query;
     let query = supabase
       .from('usuarios')
-      .select('id, nombre_completo, cedula, email, telefono, rol, foto_url, activo, created_at')
+      .select('id, nombre_completo, cedula, email, telefono, rol, foto_url, activo, estado, email_verificado, created_at')
       .order('nombre_completo');
 
     if (rol) query = query.eq('rol', rol);
@@ -26,7 +26,7 @@ const obtenerUsuario = async (req, res) => {
   try {
     const { data, error } = await supabase
       .from('usuarios')
-      .select('id, nombre_completo, cedula, email, telefono, rol, foto_url, activo, created_at')
+      .select('id, nombre_completo, cedula, email, telefono, rol, foto_url, activo, estado, email_verificado, created_at')
       .eq('id', req.params.id)
       .single();
     if (error) return res.status(404).json({ success: false, message: 'Usuario no encontrado' });
@@ -36,23 +36,45 @@ const obtenerUsuario = async (req, res) => {
   }
 };
 
-// PUT /api/usuarios/:id  (solo admin)
+// PUT /api/usuarios/:id (solo admin)
 const actualizarUsuario = async (req, res) => {
   try {
-    const { nombre_completo, cedula, email, telefono, rol, activo } = req.body;
+    const { nombre_completo, cedula, email, telefono, rol, activo, estado } = req.body;
+
+    // Proteger admin: no se puede desactivar ni cambiar el rol de un admin
+    const { data: target } = await supabase
+      .from('usuarios')
+      .select('rol, email_verificado')
+      .eq('id', req.params.id)
+      .single();
+
+    if (target?.rol === 'admin') {
+      return res.status(403).json({ success: false, message: 'No se puede modificar el estado de un administrador' });
+    }
+
     const updates = {};
     if (nombre_completo) updates.nombre_completo = nombre_completo.trim();
     if (cedula) updates.cedula = cedula.trim();
     if (email) updates.email = email.toLowerCase().trim();
     if (telefono) updates.telefono = telefono.trim();
     if (rol) updates.rol = rol;
-    if (activo !== undefined) updates.activo = activo;
+
+    // Manejo de estado
+    if (estado) {
+      updates.estado = estado;
+      // Si el admin cambia a 'desactivada', también desactivar activo
+      if (estado === 'desactivada') updates.activo = false;
+      else updates.activo = true;
+    } else if (activo !== undefined) {
+      updates.activo = activo;
+      updates.estado = activo ? 'activada' : 'desactivada';
+    }
 
     const { data, error } = await supabase
       .from('usuarios')
       .update(updates)
       .eq('id', req.params.id)
-      .select('id, nombre_completo, cedula, email, telefono, rol, foto_url, activo')
+      .select('id, nombre_completo, cedula, email, telefono, rol, foto_url, activo, estado, email_verificado')
       .single();
 
     if (error) throw error;
@@ -62,13 +84,22 @@ const actualizarUsuario = async (req, res) => {
   }
 };
 
-// DELETE /api/usuarios/:id  (solo admin - desactivar)
+// DELETE /api/usuarios/:id (solo admin — desactivar, nunca eliminar)
 const eliminarUsuario = async (req, res) => {
   try {
-    if (req.params.id === req.usuario.id) {
-      return res.status(400).json({ success: false, message: 'No puedes eliminarte a ti mismo' });
-    }
-    await supabase.from('usuarios').update({ activo: false }).eq('id', req.params.id);
+    if (req.params.id === req.usuario.id)
+      return res.status(400).json({ success: false, message: 'No puedes desactivarte a ti mismo' });
+
+    const { data: target } = await supabase
+      .from('usuarios').select('rol').eq('id', req.params.id).single();
+
+    if (target?.rol === 'admin')
+      return res.status(403).json({ success: false, message: 'No se puede desactivar a un administrador' });
+
+    await supabase.from('usuarios')
+      .update({ activo: false, estado: 'desactivada' })
+      .eq('id', req.params.id);
+
     res.json({ success: true, message: 'Usuario desactivado correctamente' });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -78,9 +109,9 @@ const eliminarUsuario = async (req, res) => {
 // POST /api/usuarios/:id/foto
 const subirFotoPerfil = async (req, res) => {
   try {
-    if (!req.file) {
+    if (!req.file)
       return res.status(400).json({ success: false, message: 'No se proporcionó imagen' });
-    }
+
     const ext = req.file.originalname.split('.').pop();
     const fileName = `perfil_${req.usuario.id}_${Date.now()}.${ext}`;
     const url = await subirArchivo('fotos-perfil', fileName, req.file.buffer, req.file.mimetype);
