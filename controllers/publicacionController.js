@@ -14,7 +14,6 @@ const listarPublicaciones = async (req, res) => {
       .eq('activo', true)
       .order('created_at', { ascending: false });
 
-    // Admin ve todas; docentes y ayudantes ven lo que les aplica
     if (rol !== 'admin') {
       query = query.or(
         `tipo_destinatario.eq.todos,` +
@@ -28,7 +27,22 @@ const listarPublicaciones = async (req, res) => {
 
     const { data, error } = await query;
     if (error) throw error;
-    res.json({ success: true, publicaciones: data });
+
+    // Obtener IDs ya vistos por este usuario
+    const { data: vistas } = await supabase
+      .from('publicaciones_vistas')
+      .select('publicacion_id')
+      .eq('usuario_id', userId);
+
+    const idsVistos = new Set((vistas || []).map(v => v.publicacion_id));
+
+    // Añadir campo `vista` a cada publicación
+    const publicacionesConVista = (data || []).map(p => ({
+      ...p,
+      vista: idsVistos.has(p.id),
+    }));
+
+    res.json({ success: true, publicaciones: publicacionesConVista });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
