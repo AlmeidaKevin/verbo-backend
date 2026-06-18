@@ -81,40 +81,43 @@ const crearUsuario = async (req, res) => {
 
     const verificarUrl = `${process.env.FRONTEND_URL}/verificar-cuenta/${verification_token}`;
 
-    // Enviar email en background
-    enviarEmail({
-      to: email,
-      subject: 'Verifica tu cuenta - Escuela Dominical Verbo Mañosca',
-      html: `
-        <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;padding:24px;background:#f9f9f9;border-radius:12px">
-          <div style="background:#1F4E5F;padding:24px;border-radius:10px 10px 0 0;text-align:center">
-            <h2 style="color:#ffffff;margin:0">Escuela Dominical</h2>
-            <p style="color:#9EC5D0;margin:8px 0 0">Iglesia Cristiana Verbo Mañosca</p>
-          </div>
-          <div style="background:#ffffff;padding:24px;border-radius:0 0 10px 10px">
-            <p style="color:#333">Hola <strong>${nombre_completo}</strong>,</p>
-            <p style="color:#333">Tu cuenta ha sido creada con el rol de <strong>${rol}</strong>.</p>
-            <p style="color:#333"><strong>Email:</strong> ${email}<br><strong>Contraseña:</strong> ${password}</p>
-            <p style="color:#555">Por favor verifica tu cuenta haciendo clic en el botón de abajo:</p>
-            <div style="text-align:center;margin:28px 0">
-              <a href="${verificarUrl}" style="background:#1F4E5F;color:white;padding:14px 32px;text-decoration:none;border-radius:8px;font-weight:bold;display:inline-block">
-                ✅ Verificar mi cuenta
-              </a>
+    // Envío síncrono para ver el error en logs
+    try {
+      await enviarEmail({
+        to: email,
+        subject: 'Verifica tu cuenta - Escuela Dominical Verbo Mañosca',
+        html: `
+          <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;padding:24px;background:#f9f9f9;border-radius:12px">
+            <div style="background:#1F4E5F;padding:24px;border-radius:10px 10px 0 0;text-align:center">
+              <h2 style="color:#ffffff;margin:0">Escuela Dominical</h2>
+              <p style="color:#9EC5D0;margin:8px 0 0">Iglesia Cristiana Verbo Mañosca</p>
             </div>
-            <p style="color:#888;font-size:12px">Si no puedes hacer clic, copia este enlace en tu navegador:<br>${verificarUrl}</p>
-            <p style="color:#888;font-size:12px;margin-top:16px">Por seguridad, cambia tu contraseña al ingresar.</p>
+            <div style="background:#ffffff;padding:24px;border-radius:0 0 10px 10px">
+              <p style="color:#333">Hola <strong>${nombre_completo}</strong>,</p>
+              <p style="color:#333">Tu cuenta ha sido creada con el rol de <strong>${rol}</strong>.</p>
+              <p style="color:#333"><strong>Email:</strong> ${email}<br><strong>Contraseña:</strong> ${password}</p>
+              <p style="color:#555">Por favor verifica tu cuenta haciendo clic en el botón de abajo:</p>
+              <div style="text-align:center;margin:28px 0">
+                <a href="${verificarUrl}" style="background:#1F4E5F;color:white;padding:14px 32px;text-decoration:none;border-radius:8px;font-weight:bold;display:inline-block">
+                  ✅ Verificar mi cuenta
+                </a>
+              </div>
+              <p style="color:#888;font-size:12px">Si no puedes hacer clic, copia este enlace en tu navegador:<br>${verificarUrl}</p>
+              <p style="color:#888;font-size:12px;margin-top:16px">Por seguridad, cambia tu contraseña al ingresar.</p>
+            </div>
           </div>
-        </div>
-      `,
-    }).catch(e => {
-      console.error('EMAIL ERROR completo:', {
-        message: e.message,
-        code: e.code,
-        command: e.command,
-        response: e.response,
-        responseCode: e.responseCode,
+        `,
       });
-    });
+      console.log('✅ Email de verificación enviado a:', email);
+    } catch (emailErr) {
+      console.error('❌ EMAIL ERROR:', {
+        message: emailErr.message,
+        code: emailErr.code,
+        command: emailErr.command,
+        response: emailErr.response,
+        responseCode: emailErr.responseCode,
+      });
+    }
 
     res.status(201).json({ success: true, message: 'Usuario creado. Se envió email de verificación.', usuario: nuevo });
   } catch (err) {
@@ -136,7 +139,6 @@ const verificarCuenta = async (req, res) => {
     if (error || !usuario)
       return res.status(400).json({ success: false, message: 'Token de verificación inválido o ya utilizado' });
 
-    // Solo actualizar si estaba pendiente
     if (usuario.estado === 'pendiente') {
       await supabase
         .from('usuarios')
@@ -173,27 +175,32 @@ const olvidéPassword = async (req, res) => {
 
     const resetUrl = `${process.env.FRONTEND_URL}/reset-password/${token}`;
 
-    enviarEmail({
-      to: email,
-      subject: 'Recuperar contraseña - Escuela Dominical',
-      html: `
-        <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;padding:24px;background:#f9f9f9;border-radius:12px">
-          <div style="background:#1F4E5F;padding:24px;border-radius:10px 10px 0 0;text-align:center">
-            <h2 style="color:#ffffff;margin:0">Recuperar Contraseña</h2>
-          </div>
-          <div style="background:#ffffff;padding:24px;border-radius:0 0 10px 10px">
-            <p>Hola <strong>${usuario.nombre_completo}</strong>,</p>
-            <p>Haz clic en el enlace para restablecer tu contraseña. Válido por 1 hora.</p>
-            <div style="text-align:center;margin:28px 0">
-              <a href="${resetUrl}" style="background:#1F4E5F;color:white;padding:14px 32px;text-decoration:none;border-radius:8px;font-weight:bold;display:inline-block">
-                🔑 Restablecer contraseña
-              </a>
+    try {
+      await enviarEmail({
+        to: email,
+        subject: 'Recuperar contraseña - Escuela Dominical',
+        html: `
+          <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;padding:24px;background:#f9f9f9;border-radius:12px">
+            <div style="background:#1F4E5F;padding:24px;border-radius:10px 10px 0 0;text-align:center">
+              <h2 style="color:#ffffff;margin:0">Recuperar Contraseña</h2>
             </div>
-            <p style="color:#888;font-size:12px">Si no solicitaste esto, ignora este email.</p>
+            <div style="background:#ffffff;padding:24px;border-radius:0 0 10px 10px">
+              <p>Hola <strong>${usuario.nombre_completo}</strong>,</p>
+              <p>Haz clic en el enlace para restablecer tu contraseña. Válido por 1 hora.</p>
+              <div style="text-align:center;margin:28px 0">
+                <a href="${resetUrl}" style="background:#1F4E5F;color:white;padding:14px 32px;text-decoration:none;border-radius:8px;font-weight:bold;display:inline-block">
+                  🔑 Restablecer contraseña
+                </a>
+              </div>
+              <p style="color:#888;font-size:12px">Si no solicitaste esto, ignora este email.</p>
+            </div>
           </div>
-        </div>
-      `,
-    }).catch(e => console.error('Error enviando email reset:', e.message));
+        `,
+      });
+      console.log('✅ Email de reset enviado a:', email);
+    } catch (emailErr) {
+      console.error('❌ EMAIL RESET ERROR:', emailErr.message);
+    }
 
     res.json({ success: true, message: 'Si el email existe, recibirás un enlace' });
   } catch (err) {
