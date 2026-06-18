@@ -5,6 +5,9 @@ const { proteger, soloAdmin } = require('../middleware/authMiddleware');
 const { reglasPublicacion, validar } = require('../middleware/validarMiddleware');
 const { uploadArchivos } = require('../middleware/uploadMiddleware');
 
+
+router.get('/no-vistas', proteger, ctrl.contarNoVistas);
+router.post('/marcar-vistas', proteger, ctrl.marcarVistas);
 // Ruta pública (sin auth) para niños
 router.get('/publico', ctrl.publicacionesPublicas);
 
