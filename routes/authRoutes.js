@@ -10,7 +10,8 @@ const { subirFotoPerfil } = require('../controllers/usuarioController');
 router.post('/login', login);
 router.post('/olvide-password', olvidéPassword);
 router.post('/reset-password/:token', [...reglasPassword, validar], resetPassword);
-router.post('/crear-usuario', proteger, soloAdmin, [...reglasUsuario, ...reglasPassword, validar], crearUsuario);
+router.post('/crear-usuario', proteger, soloAdmin, (req, res, next) => { console.log('BODY crear-usuario:', JSON.stringify(req.body)); next(); }, [...reglasUsuario, ...reglasPassword, validar], crearUsuario);
+
 
 router.get('/verificar/:token', verificarCuenta);
 router.get('/perfil', proteger, obtenerPerfil);
