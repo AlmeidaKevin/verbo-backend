@@ -4,6 +4,7 @@ const { body, param, validationResult } = require('express-validator');
 const validar = (req, res, next) => {
   const errores = validationResult(req);
   if (!errores.isEmpty()) {
+    console.log('=== ERRORES VALIDACIÓN ===', JSON.stringify(errores.array()));
     return res.status(400).json({
       success: false,
       message: 'Error de validación',
