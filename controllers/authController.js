@@ -106,7 +106,15 @@ const crearUsuario = async (req, res) => {
           </div>
         </div>
       `,
-    }).catch(e => console.error('Error enviando email de verificación:', e.message));
+    }).catch(e => {
+      console.error('EMAIL ERROR completo:', {
+        message: e.message,
+        code: e.code,
+        command: e.command,
+        response: e.response,
+        responseCode: e.responseCode,
+      });
+    });
 
     res.status(201).json({ success: true, message: 'Usuario creado. Se envió email de verificación.', usuario: nuevo });
   } catch (err) {
