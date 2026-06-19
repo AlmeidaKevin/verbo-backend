@@ -11,13 +11,13 @@ const crearTransporter = () => nodemailer.createTransport({
   tls: {
     rejectUnauthorized: false,
   },
+  connectionTimeout: 10000, // 10s máximo para conectar
+  greetingTimeout: 10000,
+  socketTimeout: 15000,
 });
 
 const enviarEmail = async ({ to, subject, html, text }) => {
   const transporter = crearTransporter();
-
-  // Verificar conexión antes de enviar
-  await transporter.verify();
 
   const info = await transporter.sendMail({
     from: `"Escuela Dominical Verbo Mañosca" <${process.env.EMAIL_FROM || process.env.EMAIL_USER}>`,
