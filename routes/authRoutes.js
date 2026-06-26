@@ -16,7 +16,7 @@ router.post('/crear-usuario', proteger, soloAdmin, (req, res, next) => { console
 router.get('/verificar/:token', verificarCuenta);
 router.get('/perfil', proteger, obtenerPerfil);
 router.put('/perfil', proteger, actualizarPerfil);
-router.put('/cambiar-password', proteger, [...reglasPassword.map(r => r.customWithMessage ? r : r), validar], cambiarPassword);
+router.put('/cambiar-password', proteger, cambiarPassword);
 router.post('/perfil/foto', proteger, (req, res, next) => uploadFoto(req, res, next), subirFotoPerfil);
 
 module.exports = router;
