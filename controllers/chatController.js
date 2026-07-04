@@ -197,7 +197,6 @@ const buscarUsuarios = async (req, res) => {
       .select('id, nombre_completo, email, foto_url, rol')
       .neq('id', userId)
       .eq('activo', true)
-      .neq('rol', 'admin')
       .or(`nombre_completo.ilike.%${q}%,email.ilike.%${q}%`)
       .limit(8);
 
