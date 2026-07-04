@@ -31,6 +31,7 @@ app.use('/api/publicaciones', require('./routes/publicacionRoutes'));
 app.get('/api/health', (req, res) =>
   res.json({ status: 'OK', message: 'Verbo Mañosca API corriendo ✅', timestamp: new Date() })
 );
+app.use('/api/chat', require('./routes/chatRoutes'));
 
 // Error handler global
 app.use((err, req, res, next) => {
