@@ -225,7 +225,7 @@ const contarNoVistas = async (req, res) => {
     let query = supabase
       .from('publicaciones')
       .select('id', { count: 'exact', head: true })
-      .eq('activo', true);
+      .eq('activo', true)
       .neq('publicado_por', userId);
 
     if (req.usuario.rol !== 'admin') {
