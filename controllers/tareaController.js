@@ -101,6 +101,7 @@ const generarConIA = async (req, res) => {
     const resultado = await generarTareaIA(descripcion, indice || 0);
     res.json({ success: true, ...resultado });
   } catch (err) {
+    console.error('ERROR generarConIA:', err.message, err.stack);
     res.status(500).json({ success: false, message: err.message });
   }
 };
