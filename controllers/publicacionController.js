@@ -39,7 +39,7 @@ const listarPublicaciones = async (req, res) => {
     // Añadir campo `vista` a cada publicación
     const publicacionesConVista = (data || []).map(p => ({
       ...p,
-      vista: idsVistos.has(p.id),
+      vista: idsVistos.has(p.id) || p.publicado_por === userId, // las propias siempre marcadas como vistas
     }));
 
     res.json({ success: true, publicaciones: publicacionesConVista });
@@ -226,6 +226,7 @@ const contarNoVistas = async (req, res) => {
       .from('publicaciones')
       .select('id', { count: 'exact', head: true })
       .eq('activo', true);
+      .neq('publicado_por', userId);
 
     if (req.usuario.rol !== 'admin') {
       query = query.or(
