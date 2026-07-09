@@ -169,7 +169,6 @@ const publicacionesPublicas = async (req, res) => {
   try {
     const { reunion_id, grupo_id } = req.query;
 
-    // ── Tareas filtradas ──────────────────────────────────────
     let tareasQuery = supabase
       .from('tareas')
       .select(`titulo, descripcion, archivos, created_at,
@@ -181,15 +180,19 @@ const publicacionesPublicas = async (req, res) => {
       .order('created_at', { ascending: false })
       .limit(20);
 
-    if (reunion_id) tareasQuery = tareasQuery.eq('reunion_id', reunion_id);
-    if (grupo_id) tareasQuery = tareasQuery.eq('grupo_id', grupo_id);
+    // Si hay filtro de reunión: mostrar tareas de esa reunión O tareas para todas (null)
+    if (reunion_id) {
+      tareasQuery = tareasQuery.or(`reunion_id.eq.${reunion_id},reunion_id.is.null`);
+    }
+
+    // Si hay filtro de grupo: mostrar tareas de ese grupo O tareas para todos (null)
+    if (grupo_id) {
+      tareasQuery = tareasQuery.or(`grupo_id.eq.${grupo_id},grupo_id.is.null`);
+    }
 
     const { data: tareas, error: tareasError } = await tareasQuery;
     if (tareasError) throw tareasError;
 
-    // ── Publicaciones visibles para niños ─────────────────────
-    // grupos_con_ninos → todos los niños
-    // grupo_especifico_con_ninos → solo niños de grupos seleccionados (filtrado en frontend por grupos_ids)
     const { data: pubs, error: pubsError } = await supabase
       .from('publicaciones')
       .select(`id, titulo, contenido, archivos, created_at, tipo_destinatario, destinatarios_ids, grupos_ids,
