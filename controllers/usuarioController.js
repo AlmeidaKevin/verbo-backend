@@ -43,18 +43,29 @@ const actualizarUsuario = async (req, res) => {
   try {
     const { nombre_completo, cedula, email, telefono, rol, activo, estado } = req.body;
 
+    // OJO: se agrega "email" al select, se necesita para saber si el objetivo es el super admin
     const { data: target } = await supabase
       .from('usuarios')
-      .select('rol, email_verificado')
+      .select('rol, email, email_verificado')
       .eq('id', req.params.id)
       .single();
 
-    const esSuperAdmin = req.usuario?.email === SUPER_ADMIN_EMAIL;
-    const esUnoMismo   = String(req.usuario?.id) === String(req.params.id);
+    const esSuperAdmin       = req.usuario?.email === SUPER_ADMIN_EMAIL;
+    const esUnoMismo         = String(req.usuario?.id) === String(req.params.id);
+    const targetEsSuperAdmin = target?.email === SUPER_ADMIN_EMAIL;
 
-    // Proteger admin: solo el super admin o el propio admin pueden modificarse
-    if (target?.rol === 'admin' && !esSuperAdmin && !esUnoMismo) {
-      return res.status(403).json({ success: false, message: 'No se puede modificar el estado de un administrador' });
+    if (target?.rol === 'admin') {
+      const intentaCambiarEstado = estado !== undefined || activo !== undefined;
+
+      if (targetEsSuperAdmin && esUnoMismo) {
+        // El super admin no puede cambiar su propio estado: siempre permanece activo
+        if (intentaCambiarEstado) {
+          return res.status(403).json({ success: false, message: 'El super administrador siempre permanece activo' });
+        }
+      } else if (!esSuperAdmin && !esUnoMismo) {
+        // Un admin regular no puede tocar el estado de otro admin (ni del super admin)
+        return res.status(403).json({ success: false, message: 'No se puede modificar el estado de otro administrador' });
+      }
     }
 
     const updates = {};
@@ -92,13 +103,17 @@ const actualizarUsuario = async (req, res) => {
 // DELETE /api/usuarios/:id (solo admin — desactivar, nunca eliminar)
 const eliminarUsuario = async (req, res) => {
   try {
-    if (req.params.id === req.usuario.id)
+    if (String(req.params.id) === String(req.usuario.id))
       return res.status(400).json({ success: false, message: 'No puedes desactivarte a ti mismo' });
 
     const { data: target } = await supabase
-      .from('usuarios').select('rol').eq('id', req.params.id).single();
+      .from('usuarios').select('rol, email').eq('id', req.params.id).single();
 
     const esSuperAdmin = req.usuario?.email === SUPER_ADMIN_EMAIL;
+    const targetEsSuperAdmin = target?.email === SUPER_ADMIN_EMAIL;
+
+    if (targetEsSuperAdmin)
+      return res.status(403).json({ success: false, message: 'No se puede desactivar al super administrador' });
 
     if (target?.rol === 'admin' && !esSuperAdmin)
       return res.status(403).json({ success: false, message: 'No se puede desactivar a un administrador' });
