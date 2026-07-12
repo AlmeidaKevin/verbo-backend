@@ -2,6 +2,8 @@ const bcrypt = require('bcryptjs');
 const supabase = require('../config/supabase');
 const { subirArchivo } = require('../services/storageService');
 
+const SUPER_ADMIN_EMAIL = 'almeidakevin783@gmail.com';
+
 // GET /api/usuarios
 const listarUsuarios = async (req, res) => {
   try {
@@ -41,14 +43,17 @@ const actualizarUsuario = async (req, res) => {
   try {
     const { nombre_completo, cedula, email, telefono, rol, activo, estado } = req.body;
 
-    // Proteger admin: no se puede desactivar ni cambiar el rol de un admin
     const { data: target } = await supabase
       .from('usuarios')
       .select('rol, email_verificado')
       .eq('id', req.params.id)
       .single();
 
-    if (target?.rol === 'admin') {
+    const esSuperAdmin = req.usuario?.email === SUPER_ADMIN_EMAIL;
+    const esUnoMismo   = String(req.usuario?.id) === String(req.params.id);
+
+    // Proteger admin: solo el super admin o el propio admin pueden modificarse
+    if (target?.rol === 'admin' && !esSuperAdmin && !esUnoMismo) {
       return res.status(403).json({ success: false, message: 'No se puede modificar el estado de un administrador' });
     }
 
@@ -93,7 +98,9 @@ const eliminarUsuario = async (req, res) => {
     const { data: target } = await supabase
       .from('usuarios').select('rol').eq('id', req.params.id).single();
 
-    if (target?.rol === 'admin')
+    const esSuperAdmin = req.usuario?.email === SUPER_ADMIN_EMAIL;
+
+    if (target?.rol === 'admin' && !esSuperAdmin)
       return res.status(403).json({ success: false, message: 'No se puede desactivar a un administrador' });
 
     await supabase.from('usuarios')
