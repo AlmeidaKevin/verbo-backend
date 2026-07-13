@@ -7,11 +7,13 @@ const listarPublicaciones = async (req, res) => {
   try {
     const userId = req.usuario.id;
     const rol = req.usuario.rol;
+    const fechaCreacionUsuario = req.usuario.created_at;
 
     let query = supabase
       .from('publicaciones')
       .select(`*, publicado_por:publicado_por(id, nombre_completo, foto_url, rol)`)
       .eq('activo', true)
+      .gte('created_at', fechaCreacionUsuario)
       .order('created_at', { ascending: false });
 
     if (rol !== 'admin') {
@@ -28,7 +30,6 @@ const listarPublicaciones = async (req, res) => {
     const { data, error } = await query;
     if (error) throw error;
 
-    // Obtener IDs ya vistos por este usuario
     const { data: vistas } = await supabase
       .from('publicaciones_vistas')
       .select('publicacion_id')
@@ -36,10 +37,9 @@ const listarPublicaciones = async (req, res) => {
 
     const idsVistos = new Set((vistas || []).map(v => v.publicacion_id));
 
-    // Añadir campo `vista` a cada publicación
     const publicacionesConVista = (data || []).map(p => ({
       ...p,
-      vista: idsVistos.has(p.id) || p.publicado_por === userId, // las propias siempre marcadas como vistas
+      vista: idsVistos.has(p.id) || p.publicado_por === userId,
     }));
 
     res.json({ success: true, publicaciones: publicacionesConVista });
