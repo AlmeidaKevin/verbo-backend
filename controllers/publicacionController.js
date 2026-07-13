@@ -211,11 +211,13 @@ const publicacionesPublicas = async (req, res) => {
   }
 };
 
+
 // GET /api/publicaciones/no-vistas — cuántas publicaciones nuevas tiene el usuario
 const contarNoVistas = async (req, res) => {
   try {
     const userId = req.usuario.id;
-
+    const fechaCreacionUsuario = req.usuario.created_at;
+    
     // Obtener IDs de publicaciones ya vistas
     const { data: vistas } = await supabase
       .from('publicaciones_vistas')
@@ -223,12 +225,13 @@ const contarNoVistas = async (req, res) => {
       .eq('usuario_id', userId);
 
     const idsVistos = (vistas || []).map(v => v.publicacion_id);
-
+    
     // Contar publicaciones que le aplican y no ha visto
     let query = supabase
       .from('publicaciones')
       .select('id', { count: 'exact', head: true })
       .eq('activo', true)
+      .gte('created_at', fechaCreacionUsuario)
       .neq('publicado_por', userId);
 
     if (req.usuario.rol !== 'admin') {
@@ -252,6 +255,7 @@ const contarNoVistas = async (req, res) => {
     res.status(500).json({ success: false, message: err.message });
   }
 };
+
 
 // POST /api/publicaciones/marcar-vistas — marcar publicaciones como vistas
 const marcarVistas = async (req, res) => {
