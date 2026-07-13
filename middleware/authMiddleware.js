@@ -13,7 +13,7 @@ const proteger = async (req, res, next) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const { data: usuario, error } = await supabase
       .from('usuarios')
-      .select('id, nombre_completo, email, rol, activo')
+      .select('id, nombre_completo, email, rol, activo, created_at')   // ← se agregó created_at
       .eq('id', decoded.id)
       .single();
     if (error || !usuario) {
