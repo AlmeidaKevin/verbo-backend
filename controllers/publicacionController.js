@@ -2,6 +2,8 @@ const supabase = require('../config/supabase');
 const { subirArchivo } = require('../services/storageService');
 const { enviarEmail } = require('../services/emailService');
 
+const SUPER_ADMIN_EMAIL = 'almeidakevin783@gmail.com';
+
 // GET /api/publicaciones
 const listarPublicaciones = async (req, res) => {
   try {
@@ -11,7 +13,7 @@ const listarPublicaciones = async (req, res) => {
 
     let query = supabase
       .from('publicaciones')
-      .select(`*, publicado_por:publicado_por(id, nombre_completo, foto_url, rol)`)
+      .select(`*, publicado_por:publicado_por(id, nombre_completo, foto_url, rol), editado_por:editado_por(id, nombre_completo)`)
       .eq('activo', true)
       .gte('created_at', fechaCreacionUsuario)
       .order('created_at', { ascending: false });
@@ -93,7 +95,6 @@ const crearPublicacion = async (req, res) => {
 
     if (error) throw error;
 
-    // Enviar emails en background sin bloquear la respuesta
     enviarNotificacionPublicacion(data, parsedDestinatarios, tipo_destinatario).catch(console.error);
 
     res.status(201).json({ success: true, publicacion: data });
@@ -116,7 +117,6 @@ const enviarNotificacionPublicacion = async (publicacion, destinatariosIds, tipo
       const { data } = await supabase.from('usuarios').select('email').eq('rol', 'ayudante').eq('activo', true);
       emails = data?.map(u => u.email) || [];
     } else if (destinatariosIds.length > 0) {
-      // docentes_especificos, ayudantes_especificos, grupo_especifico_con_ninos, grupo_especifico_sin_ninos
       const { data } = await supabase.from('usuarios').select('email').in('id', destinatariosIds).eq('activo', true);
       emails = data?.map(u => u.email) || [];
     }
@@ -141,12 +141,40 @@ const enviarNotificacionPublicacion = async (publicacion, destinatariosIds, tipo
 const actualizarPublicacion = async (req, res) => {
   try {
     const { titulo, contenido } = req.body;
+
+    const { data: original, error: errorBusqueda } = await supabase
+      .from('publicaciones')
+      .select('id, publicado_por')
+      .eq('id', req.params.id)
+      .single();
+
+    if (errorBusqueda || !original)
+      return res.status(404).json({ success: false, message: 'Publicación no encontrada' });
+
+    const esSuperAdmin = req.usuario?.email === SUPER_ADMIN_EMAIL;
+    const esAutor = String(original.publicado_por) === String(req.usuario.id);
+
+    if (!esAutor && !esSuperAdmin) {
+      return res.status(403).json({ success: false, message: 'Solo puedes editar tus propias publicaciones' });
+    }
+
+    const updates = {
+      titulo: titulo?.trim(),
+      contenido: contenido?.trim(),
+    };
+
+    // Si el super admin edita una publicación que no es suya, se registra quién la editó
+    if (esSuperAdmin && !esAutor) {
+      updates.editado_por = req.usuario.id;
+    }
+
     const { data, error } = await supabase
       .from('publicaciones')
-      .update({ titulo: titulo?.trim(), contenido: contenido?.trim() })
+      .update(updates)
       .eq('id', req.params.id)
-      .select()
+      .select(`*, publicado_por:publicado_por(id, nombre_completo, foto_url, rol), editado_por:editado_por(id, nombre_completo)`)
       .single();
+
     if (error) throw error;
     res.json({ success: true, publicacion: data });
   } catch (err) {
@@ -180,12 +208,10 @@ const publicacionesPublicas = async (req, res) => {
       .order('created_at', { ascending: false })
       .limit(20);
 
-    // Si hay filtro de reunión: mostrar tareas de esa reunión O tareas para todas (null)
     if (reunion_id) {
       tareasQuery = tareasQuery.or(`reunion_id.eq.${reunion_id},reunion_id.is.null`);
     }
 
-    // Si hay filtro de grupo: mostrar tareas de ese grupo O tareas para todos (null)
     if (grupo_id) {
       tareasQuery = tareasQuery.or(`grupo_id.eq.${grupo_id},grupo_id.is.null`);
     }
@@ -211,22 +237,19 @@ const publicacionesPublicas = async (req, res) => {
   }
 };
 
-
-// GET /api/publicaciones/no-vistas — cuántas publicaciones nuevas tiene el usuario
+// GET /api/publicaciones/no-vistas
 const contarNoVistas = async (req, res) => {
   try {
     const userId = req.usuario.id;
     const fechaCreacionUsuario = req.usuario.created_at;
-    
-    // Obtener IDs de publicaciones ya vistas
+
     const { data: vistas } = await supabase
       .from('publicaciones_vistas')
       .select('publicacion_id')
       .eq('usuario_id', userId);
 
     const idsVistos = (vistas || []).map(v => v.publicacion_id);
-    
-    // Contar publicaciones que le aplican y no ha visto
+
     let query = supabase
       .from('publicaciones')
       .select('id', { count: 'exact', head: true })
@@ -256,12 +279,11 @@ const contarNoVistas = async (req, res) => {
   }
 };
 
-
-// POST /api/publicaciones/marcar-vistas — marcar publicaciones como vistas
+// POST /api/publicaciones/marcar-vistas
 const marcarVistas = async (req, res) => {
   try {
     const userId = req.usuario.id;
-    const { publicacion_ids } = req.body; // array de IDs
+    const { publicacion_ids } = req.body;
 
     if (!publicacion_ids || publicacion_ids.length === 0) {
       return res.json({ success: true });
