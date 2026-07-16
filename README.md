@@ -1,176 +1,188 @@
-# 📖 Sistema Escuela Dominical - Verbo Mañosca
+# Sistema Escuela Dominical — Iglesia Cristiana Verbo Mañosca
 
-## Estructura de repositorios
-- `verbo-backend/` → Node.js + Express + Supabase
-- `verbo-frontend/` → React + Tailwind CSS
+Guía de instalación, configuración y despliegue del sistema completo (backend y frontend).
+
+## 📺 Manual de usuario
+
+- **YouTube:** https://youtu.be/STA7XPuSRTE
+- **Google Drive** (mismo video): https://drive.google.com/file/d/1YNoMLMT_BxqqWNlygKyz-fJWt71Al-Fm/view?usp=drive_link
 
 ---
 
-## 🗄️ PASO 1 — Configurar Supabase
+## Estructura de repositorios
 
-1. Ir a https://supabase.com y crear un proyecto nuevo.
-2. En **SQL Editor**, pegar y ejecutar todo el contenido de `verbo-backend/config/schema.sql`.
-3. En **Storage**, crear tres buckets:
-   - `fotos-perfil` → marcar como **Public**
-   - `archivos-tareas` → marcar como **Private**
-   - `archivos-publicaciones` → marcar como **Private**
-4. Copiar desde **Settings > API**:
+- `verbo-backend/` — Node.js + Express + Supabase
+- `verbo-frontend/` — React + Tailwind CSS
+
+---
+
+## Paso 1 — Configurar Supabase
+
+1. Crear un proyecto nuevo en [supabase.com](https://supabase.com).
+2. En **SQL Editor**, pegar y ejecutar el contenido de `verbo-backend/config/schema.sql`.
+3. En **Storage**, crear los siguientes buckets:
+
+   | Bucket | Visibilidad | Contenido |
+   |---|---|---|
+   | `fotos-perfil` | Público | Fotos de perfil de usuario |
+   | `archivos-publicaciones` | Privado | Archivos adjuntos a publicaciones |
+   | `archivos-tareas` | Privado | Archivos adjuntos a tareas |
+   | `archivos-chat` | Privado | Archivos enviados en la mensajería interna |
+
+4. Copiar desde **Settings → API**:
    - `Project URL` → `SUPABASE_URL`
    - `service_role key` → `SUPABASE_SERVICE_ROLE_KEY`
    - `anon public key` → `SUPABASE_ANON_KEY`
 
 ---
 
-## ⚙️ PASO 2 — Backend (VS Code)
+## Paso 2 — Backend
 
 ```bash
 cd verbo-backend
 npm install
 
-# Copiar y editar variables de entorno
 cp .env.example .env
-# Editar .env con tus valores reales
-
-# Ejecutar en desarrollo
-npm run dev
+# Editar .env con los valores reales
 ```
 
-### Variables .env del backend:
-```
+### Variables de entorno del backend
+
+```env
 PORT=5000
 SUPABASE_URL=https://xxxx.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=eyJ...
 SUPABASE_ANON_KEY=eyJ...
-JWT_SECRET=tu_clave_super_secreta_aqui
+JWT_SECRET=tu_clave_secreta
 JWT_EXPIRES_IN=7d
-EMAIL_HOST=smtp.gmail.com
-EMAIL_PORT=587
-EMAIL_USER=tu@gmail.com
-EMAIL_PASS=xxxx xxxx xxxx xxxx   ← App Password de Gmail
-EMAIL_FROM="Escuela Dominical <tu@gmail.com>"
-FRONTEND_URL=https://tu-app.vercel.app
-HUGGINGFACE_API_KEY=hf_xxxxxxxx
+SENDGRID_API_KEY=SG.xxxxxxxx
+EMAIL_FROM="Escuela Dominical <notificaciones@tudominio.com>"
+FRONTEND_URL=https://tu-frontend.onrender.com
 ```
 
-### Configurar Gmail App Password:
-1. Ir a https://myaccount.google.com/security
-2. Activar verificación en 2 pasos
-3. Ir a "Contraseñas de aplicación"
-4. Generar una nueva → copiar los 16 caracteres
+### Configurar SendGrid (envío de correos)
+
+Render bloquea las conexiones SMTP salientes, por lo que el envío de correos (verificación de cuenta y recuperación de contraseña) se realiza mediante la API HTTP de SendGrid en lugar de SMTP tradicional.
+
+1. Crear una cuenta en [sendgrid.com](https://sendgrid.com).
+2. Verificar un remitente único (*Single Sender Verification*) con el correo que aparecerá como emisor.
+3. Ir a **Settings → API Keys** y crear una clave con permisos de *Mail Send*.
+4. Copiarla como `SENDGRID_API_KEY` en el `.env`.
+
+```bash
+npm run dev   # Ejecuta el servidor en modo desarrollo
+```
 
 ---
 
-## 🤖 PASO 3 — HuggingFace (IA para tareas)
-
-1. Crear cuenta en https://huggingface.co
-2. Ir a https://huggingface.co/settings/tokens
-3. Crear un **token de acceso** de tipo "read"
-4. Copiarlo como `HUGGINGFACE_API_KEY` en tu `.env`
-5. El modelo usado es `mistralai/Mistral-7B-Instruct-v0.3` (gratuito, sin límite de velocidad estricto)
-
----
-
-## 💻 PASO 4 — Frontend (VS Code)
+## Paso 3 — Frontend
 
 ```bash
 cd verbo-frontend
 npm install
 
 cp .env.example .env
-# Editar .env
+# Editar .env con los valores reales
 ```
 
-### Variables .env del frontend:
-```
+### Variables de entorno del frontend
+
+```env
 REACT_APP_API_URL=http://localhost:5000/api
 REACT_APP_SUPABASE_URL=https://xxxx.supabase.co
 REACT_APP_SUPABASE_ANON_KEY=eyJ...
 ```
 
 ```bash
-npm start   # desarrollo en http://localhost:3000
-npm run build  # build para producción
+npm start       # Desarrollo en http://localhost:3000
+npm run build    # Build para producción
 ```
 
 ---
 
-## 🚀 PASO 5 — Desplegar en Vercel (Frontend)
+## Paso 4 — Desplegar el backend en Render
 
-1. Subir `verbo-frontend` a un repositorio GitHub **separado**
-2. Ir a https://vercel.com → "Add New Project" → importar el repo
-3. En **Environment Variables**, agregar las 3 variables REACT_APP_*
-4. Deploy automático
+1. Subir `verbo-backend` a un repositorio de GitHub.
+2. En [render.com](https://render.com) → **New → Web Service** → importar el repositorio.
+3. Agregar todas las variables de entorno del `.env`.
+4. Comando de inicio: `node server.js`.
+5. Render asigna una URL propia (ej. `https://verbo-backend.onrender.com`); Render la redespliega automáticamente en cada commit sobre la rama principal.
 
-### Actualizar backend con la URL de Vercel:
-```
-FRONTEND_URL=https://tu-app-nombre.vercel.app
+---
+
+## Paso 5 — Desplegar el frontend en Render
+
+1. Subir `verbo-frontend` a un repositorio de GitHub (puede ser el mismo u otro, según tu preferencia).
+2. En Render → **New → Static Site** (o **Web Service**, según cómo lo sirvas) → importar el repositorio.
+3. Agregar las variables `REACT_APP_*` en **Environment**.
+4. Configurar una regla de reescritura (*rewrite rule*) que redirija todas las rutas a `index.html`, para que la navegación de React Router funcione correctamente al acceder directamente mediante una URL.
+
+### Actualizar las URLs cruzadas
+
+Una vez desplegados ambos servicios, actualiza en cada uno la URL real del otro:
+
+```env
+# En el backend
+FRONTEND_URL=https://verbo-frontend.onrender.com
+
+# En el frontend
+REACT_APP_API_URL=https://verbo-backend.onrender.com/api
 ```
 
 ---
 
-## 🚀 PASO 6 — Desplegar Backend (Railway / Render)
+## Credenciales del administrador por defecto
 
-### En Railway:
-1. Subir `verbo-backend` a otro repositorio GitHub
-2. https://railway.app → "New Project" → "Deploy from GitHub"
-3. Agregar todas las variables de entorno del `.env`
-4. El start command es: `node server.js`
+```
+Email:     almeidakevin783@gmail.com
+Password:  Sagitario29$
+```
 
-### Actualizar frontend:
-```
-REACT_APP_API_URL=https://tu-backend.railway.app/api
-```
+> ⚠️ **Cambiar la contraseña inmediatamente** después del primer inicio de sesión. Se recomienda además no incluir credenciales reales en un README que vaya a un repositorio público; considera mover este bloque a un documento privado o a un gestor de secretos antes de publicar el repositorio.
 
 ---
 
-## 👤 Credenciales del admin por defecto
-
-```
-Email:    almeidakevin783@gmail.com
-Password: Sagitario29$
-```
-> ⚠️ Cambiar la contraseña inmediatamente después del primer login.
-
----
-
-## 📱 Roles del sistema
+## Roles del sistema
 
 | Rol | Acceso |
-|-----|--------|
-| **Admin** | Todo: usuarios, reuniones, grupos, checklist, publicaciones, reportes |
-| **Docente/Líder** | Sus grupos, checklist, tareas, ver publicaciones |
-| **Ayudante** | Checklist (si tiene permiso del docente/admin), ver perfil |
-| **Público (niños)** | Página `/` sin login — contenido semanal |
+|---|---|
+| **Administrador** | Usuarios, reuniones, grupos, checklist, publicaciones, reportes. El **super administrador** además puede modificar el estado de otros administradores (el suyo propio permanece siempre activo). |
+| **Docente / Líder** | Sus grupos, checklist, tareas, publicaciones, mensajería. |
+| **Ayudante** | Checklist (si el docente lo habilita para su grupo), avisos, mensajería. |
+| **Público (niños)** | Página `/`, sin inicio de sesión — contenido semanal de reuniones y grupos. |
 
 ---
 
-## 📦 Librerías instaladas
+## Librerías instaladas
 
-### Backend:
+### Backend
+
 | Paquete | Uso |
-|---------|-----|
-| `@supabase/supabase-js` | Base de datos y storage |
+|---|---|
+| `@supabase/supabase-js` | Base de datos, autenticación y storage |
 | `express` | Framework HTTP |
-| `bcryptjs` | Encriptar contraseñas |
-| `jsonwebtoken` | Autenticación JWT |
+| `bcryptjs` | Cifrado de contraseñas |
+| `jsonwebtoken` | Autenticación mediante JWT |
 | `express-validator` | Validación de campos |
-| `nodemailer` | Envío de emails |
-| `node-cron` | Recordatorios automáticos (sábados 8am) |
+| `@sendgrid/mail` | Envío de correos mediante API HTTP |
+| `node-cron` | Tareas programadas |
 | `multer` | Subida de archivos |
-| `xlsx` | Exportar Excel |
-| `cors` | Permitir peticiones del frontend |
-| `morgan` | Logger de requests |
+| `pdfkit` | Exportación de reportes en PDF |
+| `exceljs` | Exportación de reportes en Excel |
+| `cors` | Habilitar peticiones desde el frontend |
+| `morgan` | Registro (logging) de solicitudes |
 | `dotenv` | Variables de entorno |
 
-### Frontend:
+### Frontend
+
 | Paquete | Uso |
-|---------|-----|
-| `react` + `react-dom` | UI |
-| `react-router-dom` | Navegación SPA |
-| `react-hook-form` | Formularios con validación |
-| `axios` | Peticiones HTTP |
-| `react-hot-toast` | Notificaciones UI |
-| `react-icons` | Iconos (FI set) |
+|---|---|
+| `react` + `react-dom` | Interfaz de usuario |
+| `react-router-dom` | Navegación de la aplicación de una sola página (SPA) |
+| `react-hook-form` | Formularios y validación |
+| `axios` | Peticiones HTTP al backend |
+| `@supabase/supabase-js` | Suscripción a eventos en tiempo real (Realtime) |
+| `react-hot-toast` | Notificaciones en la interfaz |
+| `react-icons` | Iconografía (set Feather/`fi`) |
 | `tailwindcss` | Estilos utilitarios |
-| `xlsx` | Exportar Excel en cliente |
 | `date-fns` | Formato de fechas |
