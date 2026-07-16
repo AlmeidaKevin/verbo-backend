@@ -194,4 +194,138 @@ const eliminarPublicacion = async (req, res) => {
     if (errorBusqueda || !original)
       return res.status(404).json({ success: false, message: 'Publicación no encontrada' });
 
-    const esSuperAdmin = req.usuario?.email ===
+    const esSuperAdmin = req.usuario?.email === SUPER_ADMIN_EMAIL;
+    const esAutor = String(original.publicado_por) === String(req.usuario.id);
+
+    if (!esAutor && !esSuperAdmin) {
+      return res.status(403).json({ success: false, message: 'Solo puedes eliminar tus propias publicaciones' });
+    }
+
+    await supabase.from('publicaciones').update({ activo: false }).eq('id', req.params.id);
+    res.json({ success: true, message: 'Publicación eliminada' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// GET /api/publicaciones/publico — para niños (sin auth)
+const publicacionesPublicas = async (req, res) => {
+  try {
+    const { reunion_id, grupo_id } = req.query;
+
+    let tareasQuery = supabase
+      .from('tareas')
+      .select(`titulo, descripcion, archivos, created_at,
+        publicado_por:publicado_por(nombre_completo),
+        reunion:reunion_id(id, nombre, hora_inicio, hora_fin),
+        grupo:grupo_id(id, nombre)
+      `)
+      .eq('activo', true)
+      .order('created_at', { ascending: false })
+      .limit(20);
+
+    if (reunion_id) {
+      tareasQuery = tareasQuery.or(`reunion_id.eq.${reunion_id},reunion_id.is.null`);
+    }
+
+    if (grupo_id) {
+      tareasQuery = tareasQuery.or(`grupo_id.eq.${grupo_id},grupo_id.is.null`);
+    }
+
+    const { data: tareas, error: tareasError } = await tareasQuery;
+    if (tareasError) throw tareasError;
+
+    const { data: pubs, error: pubsError } = await supabase
+      .from('publicaciones')
+      .select(`id, titulo, contenido, archivos, created_at, tipo_destinatario, destinatarios_ids, grupos_ids,
+        publicado_por:publicado_por(nombre_completo)
+      `)
+      .eq('activo', true)
+      .in('tipo_destinatario', ['grupos_con_ninos', 'grupo_especifico_con_ninos'])
+      .order('created_at', { ascending: false })
+      .limit(20);
+
+    if (pubsError) throw pubsError;
+
+    res.json({ success: true, contenidos: tareas || [], publicaciones: pubs || [] });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// GET /api/publicaciones/no-vistas
+const contarNoVistas = async (req, res) => {
+  try {
+    const userId = req.usuario.id;
+    const fechaCreacionUsuario = req.usuario.created_at;
+
+    const { data: vistas } = await supabase
+      .from('publicaciones_vistas')
+      .select('publicacion_id')
+      .eq('usuario_id', userId);
+
+    const idsVistos = (vistas || []).map(v => v.publicacion_id);
+
+    let query = supabase
+      .from('publicaciones')
+      .select('id', { count: 'exact', head: true })
+      .eq('activo', true)
+      .gte('created_at', fechaCreacionUsuario)
+      .neq('publicado_por', userId);
+
+    if (req.usuario.rol !== 'admin') {
+      query = query.or(
+        `tipo_destinatario.eq.todos,` +
+        `tipo_destinatario.eq.grupos_con_ninos,` +
+        `tipo_destinatario.eq.grupos_sin_ninos,` +
+        `and(tipo_destinatario.eq.solo_docentes,${req.usuario.rol === 'docente' ? 'tipo_destinatario.eq.solo_docentes' : 'tipo_destinatario.eq.NONE'}),` +
+        `and(tipo_destinatario.eq.solo_ayudantes,${req.usuario.rol === 'ayudante' ? 'tipo_destinatario.eq.solo_ayudantes' : 'tipo_destinatario.eq.NONE'}),` +
+        `destinatarios_ids.cs.{${userId}}`
+      );
+    }
+
+    if (idsVistos.length > 0) {
+      query = query.not('id', 'in', `(${idsVistos.join(',')})`);
+    }
+
+    const { count } = await query;
+    res.json({ success: true, no_vistas: count || 0 });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// POST /api/publicaciones/marcar-vistas
+const marcarVistas = async (req, res) => {
+  try {
+    const userId = req.usuario.id;
+    const { publicacion_ids } = req.body;
+
+    if (!publicacion_ids || publicacion_ids.length === 0) {
+      return res.json({ success: true });
+    }
+
+    const filas = publicacion_ids.map(pid => ({
+      usuario_id: userId,
+      publicacion_id: pid,
+    }));
+
+    await supabase
+      .from('publicaciones_vistas')
+      .upsert(filas, { onConflict: 'usuario_id,publicacion_id', ignoreDuplicates: true });
+
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+module.exports = {
+  listarPublicaciones,
+  crearPublicacion,
+  actualizarPublicacion,
+  eliminarPublicacion,
+  publicacionesPublicas,
+  contarNoVistas,
+  marcarVistas,
+};
